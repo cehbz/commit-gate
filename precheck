@@ -1,0 +1,43 @@
+#!/bin/bash
+# PreToolUse hook: tighten-only. Deny the agent's loosening attempts. Tier 1 deterrent.
+set -eu
+self="$0"; while [ -L "$self" ]; do l="$(readlink "$self")"; case "$l" in /*) self="$l";; *) self="$(dirname "$self")/$l";; esac; done
+SELF_DIR="$(cd "$(dirname "$self")" && pwd)"
+GATE_HOOKS="$(cd "$SELF_DIR/hooks" && pwd)"
+
+input="$(cat)"
+tool="$(printf '%s' "$input" | jq -r '.tool_name // empty')"
+deny() { jq -cn --arg r "$1" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}'; exit 0; }
+
+case "$tool" in
+  Bash)
+    cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty')"
+    if printf '%s' "$cmd" | grep -Eq 'git[[:space:]][^;&|]*commit' \
+       && printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])(--no-verify|-n)([[:space:]]|$)'; then
+      deny "commit-gate: --no-verify/-n is not allowed for the agent. Get approval, or the human can run '! git commit --no-verify'."
+    fi
+    if printf '%s' "$cmd" | grep -Eq 'commit-gate\.disabled'; then
+      deny "commit-gate: the agent may not opt a repo out (commit-gate.disabled is human-only)."
+    fi
+    if printf '%s' "$cmd" | grep -Eq 'core\.hooksPath'; then
+      if printf '%s' "$cmd" | grep -qF "core.hooksPath $GATE_HOOKS" || printf '%s' "$cmd" | grep -qF "core.hooksPath=$GATE_HOOKS"; then
+        :   # enable (point at the gate) is a tighten — allowed
+      else
+        deny "commit-gate: the agent may only set core.hooksPath to the gate (enable); not elsewhere or --unset."
+      fi
+    fi
+    if printf '%s' "$cmd" | grep -Eq '(>>?|rm |mv |cp |tee |truncate|sed -i)[^|;&]*(\.git/config|\.git/hooks|commit-gate)'; then
+      deny "commit-gate: the agent may not modify gate state, native hooks, or .git/config."
+    fi
+    exit 0 ;;
+  Write|Edit|MultiEdit|NotebookEdit)
+    path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty')"
+    case "$path" in
+      */commit-gate/*) deny "commit-gate: the agent may not edit gate state or scripts." ;;
+      */.git/hooks/*)  deny "commit-gate: the agent may not edit native git hooks." ;;
+      */.git/config)   deny "commit-gate: the agent may not edit .git/config." ;;
+      */.claude/settings.json) deny "commit-gate: the agent may not edit settings.json." ;;
+    esac
+    exit 0 ;;
+  *) exit 0 ;;
+esac
