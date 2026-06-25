@@ -1,0 +1,8 @@
+#!/bin/bash
+set -eu
+self="$0"; while [ -L "$self" ]; do l="$(readlink "$self")"; case "$l" in /*) self="$l";; *) self="$(dirname "$self")/$l";; esac; done
+SELF_DIR="$(cd "$(dirname "$self")" && pwd)"; . "$SELF_DIR/../lib/common"
+g="$(gate_dir)" || die "not inside a git repository"
+[ -d "$g" ] || die "repo not enabled"
+: > "$g/approved"; rm -f "$g/push-token"
+echo "commit-gate: approvals and push token cleared"

@@ -1,0 +1,9 @@
+#!/bin/bash
+set -eu
+self="$0"; while [ -L "$self" ]; do l="$(readlink "$self")"; case "$l" in /*) self="$l";; *) self="$(dirname "$self")/$l";; esac; done
+SELF_DIR="$(cd "$(dirname "$self")" && pwd)"; . "$SELF_DIR/../lib/common"
+g="$(gate_dir)" || die "not inside a git repository"
+git config core.hooksPath "$HOOKS_DIR"
+git config --unset commit-gate.disabled 2>/dev/null || true
+mkdir -p "$g"; : >> "$g/approved"
+echo "commit-gate: enabled in $(git rev-parse --show-toplevel)"

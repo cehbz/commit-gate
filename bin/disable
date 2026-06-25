@@ -1,0 +1,12 @@
+#!/bin/bash
+set -eu
+self="$0"; while [ -L "$self" ]; do l="$(readlink "$self")"; case "$l" in /*) self="$l";; *) self="$(dirname "$self")/$l";; esac; done
+SELF_DIR="$(cd "$(dirname "$self")" && pwd)"; . "$SELF_DIR/../lib/common"
+gate_dir >/dev/null 2>&1 || die "not inside a git repository"
+if [ "${1:-}" != "--yes" ]; then
+  printf 'Opt this repo OUT of commit-gate? [y/N] '
+  read reply < /dev/tty || reply=''
+  case "$reply" in y|Y|yes|YES) ;; *) die "aborted; still gated";; esac
+fi
+git config commit-gate.disabled true
+echo "commit-gate: disabled (opted out) for $(git rev-parse --show-toplevel)"
