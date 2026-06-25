@@ -1,11 +1,20 @@
 #!/bin/bash
-# Reads a commit message on stdin; writes its canonical sha256 (64 hex). Canonical form:
-# CRLF->LF; strip trailing whitespace per line; drop trailing blank lines. The
-# Co-Authored-By trailer, if present, is part of the message and IS hashed.
+# Reads a commit message on stdin; writes its canonical sha256 (64 hex) on stdout.
+# Canonical form: CRLF->LF; strip trailing whitespace per line; drop trailing blank lines.
+# The Co-Authored-By trailer, if present, is part of the message and IS hashed.
+# Portable: sha256sum (Linux/coreutils) or shasum -a 256 (macOS) — identical output.
 set -eu
 msg="$(cat)"
-printf '%s\n' "$msg" \
-  | tr -d '\r' \
-  | sed 's/[[:space:]]*$//' \
-  | awk '{ lines[NR]=$0 } END { last=NR; while (last>0 && lines[last]=="") last--; for (i=1;i<=last;i++) print lines[i] }' \
-  | shasum -a 256 | awk '{print $1}'
+canon() {
+  printf '%s\n' "$msg" \
+    | tr -d '\r' \
+    | sed 's/[[:space:]]*$//' \
+    | awk '{ lines[NR]=$0 } END { last=NR; while (last>0 && lines[last]=="") last--; for (i=1;i<=last;i++) print lines[i] }'
+}
+if command -v sha256sum >/dev/null 2>&1; then
+  canon | sha256sum | awk '{print $1}'
+elif command -v shasum >/dev/null 2>&1; then
+  canon | shasum -a 256 | awk '{print $1}'
+else
+  echo "commit-gate: need sha256sum or shasum" >&2; exit 1
+fi
