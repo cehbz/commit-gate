@@ -29,6 +29,9 @@ case "$tool" in
     if printf '%s' "$cmd" | grep -Eq '(>>?|rm |mv |cp |tee |truncate|sed -i)[^|;&]*(\.git/config|\.git/hooks|commit-gate)'; then
       deny "commit-gate: the agent may not modify gate state, native hooks, or .git/config."
     fi
+    if printf '%s' "$cmd" | grep -Eq '(^[[:space:]]*|[;&|][[:space:]]*)(approve|approve-push)([[:space:]]|$)'; then
+      deny "commit-gate: the agent may not run approve/approve-push — the granter is human-only (run it via ! or a separate terminal)."
+    fi
     exit 0 ;;
   Write|Edit|MultiEdit|NotebookEdit)
     path="$(printf '%s' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty')"

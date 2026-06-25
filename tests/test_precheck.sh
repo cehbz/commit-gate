@@ -17,4 +17,8 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"/x/.git/commit-gate/approv
 echo '{"tool_name":"Edit","tool_input":{"file_path":"/Users/h/.claude/settings.json"}}' | denies || fail 'settings edit'
 echo '{"tool_name":"Write","tool_input":{"file_path":"/x/.git/hooks/commit-msg"}}' | denies || fail 'native hook write'
 echo '{"tool_name":"Write","tool_input":{"file_path":"/x/src/main.go"}}' | allows || fail 'normal write'
+echo '{"tool_name":"Bash","tool_input":{"command":"approve --yes -F /tmp/x"}}' | denies || fail 'approve not denied'
+echo '{"tool_name":"Bash","tool_input":{"command":"approve-push --yes"}}' | denies || fail 'approve-push not denied'
+echo '{"tool_name":"Bash","tool_input":{"command":"git log --grep approve"}}' | allows || fail 'approve-as-arg false-denied'
+echo '{"tool_name":"Bash","tool_input":{"command":"clear-approvals"}}' | allows || fail 'clear-approvals false-denied'
 echo "OK: test_precheck"
