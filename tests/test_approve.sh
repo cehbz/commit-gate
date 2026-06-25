@@ -3,7 +3,7 @@ set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
 BIN="$DIR/../bin"; CANON="$DIR/../lib/canonical"
 
-repo="$(mkrepo)"; cd "$repo"; "$BIN/enable" >/dev/null
+repo="$(mkrepo)"; cd "$repo"; "$BIN/gate-enable" >/dev/null
 gate="$(cd "$(git rev-parse --git-common-dir)" && pwd)/commit-gate"
 
 printf 'feat: one' | "$BIN/approve" --yes

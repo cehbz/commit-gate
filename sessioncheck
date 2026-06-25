@@ -14,6 +14,6 @@ hp="$(git config --get core.hooksPath 2>/dev/null || true)"
 [ -n "$hp" ] && [ "$(cd "$hp" 2>/dev/null && pwd)" = "$HOOKS_DIR" ] && exit 0       # enabled
 
 top="$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")"
-ctx="commit-gate is not configured in this repository ($top). Offer the user a choice: run \`enable\` to gate commits/pushes here, or \`disable\` to opt out permanently. Do NOT enable without the user's explicit yes."
+ctx="commit-gate is not configured in this repository ($top). Offer the user a choice: run \`gate-enable\` to gate commits/pushes here, or \`gate-disable\` to opt out permanently. Do NOT enable without the user's explicit yes."
 jq -cn --arg c "$ctx" '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$c}}'
 exit 0

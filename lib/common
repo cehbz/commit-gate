@@ -12,8 +12,8 @@ is_enabled() {
 }
 require_enabled() {
   gate_dir >/dev/null 2>&1 || die "not inside a git repository"
-  is_disabled && die "repo is opted out (commit-gate.disabled); run: enable"
-  is_enabled || die "repo not enabled — run: enable"
+  is_disabled && die "repo is opted out (commit-gate.disabled); run: gate-enable"
+  is_enabled || die "repo not enabled — run: gate-enable"
 }
 # Run repo-local hook NAME (if executable) with args + inherited stdin; abort on its failure.
 chain_local() {

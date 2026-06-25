@@ -6,7 +6,7 @@ offers() { out="$(printf '{"cwd":"%s"}' "$1" | "$SC")"; printf '%s' "$out" | gre
 quiet()  { out="$(printf '{"cwd":"%s"}' "$1" | "$SC")"; [ -z "$out" ]; }
 
 undecided="$(mkrepo)"; offers "$undecided" || fail 'undecided should offer'
-enabled="$(mkrepo)"; ( cd "$enabled" && "$BIN/enable" >/dev/null ); quiet "$enabled" || fail 'enabled should be quiet'
-optout="$(mkrepo)"; ( cd "$optout" && "$BIN/disable" --yes >/dev/null ); quiet "$optout" || fail 'opted-out should be quiet'
+enabled="$(mkrepo)"; ( cd "$enabled" && "$BIN/gate-enable" >/dev/null ); quiet "$enabled" || fail 'enabled should be quiet'
+optout="$(mkrepo)"; ( cd "$optout" && "$BIN/gate-disable" --yes >/dev/null ); quiet "$optout" || fail 'opted-out should be quiet'
 nonrepo="$(mktemp -d)"; quiet "$nonrepo" || fail 'non-repo should be quiet'
 echo "OK: test_sessioncheck"
