@@ -1,0 +1,32 @@
+#!/bin/bash
+set -eu
+self="$0"; while [ -L "$self" ]; do l="$(readlink "$self")"; case "$l" in /*) self="$l";; *) self="$(dirname "$self")/$l";; esac; done
+SELF_DIR="$(cd "$(dirname "$self")" && pwd)"
+. "$SELF_DIR/../lib/common"
+
+MSG_FILE="$1"
+gate_dir >/dev/null 2>&1 || exit 0     # not a repo
+chain_local commit-msg "$@"            # native hook first (final message); abort on its failure
+is_disabled && exit 0                  # opted out: gate inert (native already ran)
+GATE="$(gate_dir)"; MANIFEST="$GATE/approved"
+hash="$("$CANONICAL" < "$MSG_FILE")"
+
+if [ -f "$MANIFEST" ] && grep -q "^$hash  " "$MANIFEST"; then
+  tmp="$(mktemp "$GATE/.approved.XXXXXX")"
+  grep -v "^$hash  " "$MANIFEST" > "$tmp" || true
+  mv "$tmp" "$MANIFEST"
+  exit 0
+fi
+if git rev-parse --verify -q HEAD >/dev/null 2>&1; then
+  headhash="$(git log -1 --format=%B HEAD | "$CANONICAL")"
+  [ "$hash" = "$headhash" ] && exit 0
+fi
+subject="$(head -n 1 "$MSG_FILE")"
+{
+  echo "commit-gate: commit message not approved."
+  echo "  subject: $subject"
+  echo "  sha256 : $hash"
+  echo "Have the user run:  approve   (with this exact message)"
+  echo "Human override:     git commit --no-verify"
+} >&2
+exit 1
