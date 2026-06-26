@@ -9,18 +9,21 @@ gate_dir >/dev/null 2>&1 || exit 0     # not a repo
 chain_local commit-msg "$@"            # native hook first (final message); abort on its failure
 is_disabled && exit 0                  # opted out: gate inert (native already ran)
 GATE="$(gate_dir)"; MANIFEST="$GATE/approved"
+PENDING="$(_common_dir)/cg-pending"
 hash="$("$CANONICAL" < "$MSG_FILE")"
 
 if [ -f "$MANIFEST" ] && grep -q "^$hash  " "$MANIFEST"; then
   tmp="$(mktemp "$GATE/.approved.XXXXXX")"
   grep -v "^$hash  " "$MANIFEST" > "$tmp" || true
   mv "$tmp" "$MANIFEST"
+  rm -f "$PENDING"
   exit 0
 fi
 if git rev-parse --verify -q HEAD >/dev/null 2>&1; then
   headhash="$(git log -1 --format=%B HEAD | "$CANONICAL")"
-  [ "$hash" = "$headhash" ] && exit 0
+  if [ "$hash" = "$headhash" ]; then rm -f "$PENDING"; exit 0; fi
 fi
+cat "$MSG_FILE" > "$PENDING"   # stage the rejected message for the human's bare `approve`
 subject="$(head -n 1 "$MSG_FILE")"
 {
   echo "commit-gate: commit message not approved."
