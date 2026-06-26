@@ -14,11 +14,16 @@ f="$(mktemp)"; printf 'feat: a\n@@COMMIT-GATE-SEP@@\nfeat: b\n' > "$f"
 grep -q "  feat: a\$" "$gate/approved" || fail 'batch a missing'
 grep -q "  feat: b\$" "$gate/approved" || fail 'batch b missing'
 
-# process substitution input works (-r, not -f)
 "$BIN/approve" --yes -F <(printf 'feat: c')
 grep -q "  feat: c\$" "$gate/approved" || fail 'process-sub input failed'
 
-# not enabled -> error
+# bare approve reads the preloaded pending file and consumes it
+common="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
+printf 'feat: pend' > "$common/cg-pending"
+"$BIN/approve" --yes
+grep -q "  feat: pend\$" "$gate/approved" || fail 'pending not recorded'
+[ -e "$common/cg-pending" ] && fail 'pending not consumed' || true
+
 repo2="$(mkrepo)"; cd "$repo2"
 if printf 'x' | "$BIN/approve" --yes 2>/dev/null; then fail 'approve allowed when not enabled'; fi
 echo "OK: test_approve"

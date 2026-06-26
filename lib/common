@@ -21,3 +21,20 @@ chain_local() {
   local lh; lh="$(local_hooks_dir)" || return 0
   if [ -x "$lh/$name" ]; then "$lh/$name" "$@" || exit $?; fi
 }
+# Explicit human confirmation (callers gate it behind their own --yes for tests):
+# macOS osascript dialog (works over the tty-less `!` shell) -> /dev/tty prompt -> abort.
+confirm() {  # $1 = prompt text; returns 0 if confirmed, dies otherwise
+  if [ "$(uname)" = Darwin ] && command -v osascript >/dev/null 2>&1; then
+    osascript - "$1" >/dev/null 2>&1 <<'OSA' || die "aborted; not confirmed"
+on run argv
+  display dialog (item 1 of argv) buttons {"Cancel", "Confirm"} default button "Cancel" with title "commit-gate"
+end run
+OSA
+    return 0
+  fi
+  if [ -e /dev/tty ] && { printf '%s [y/N] ' "$1" >/dev/tty; } 2>/dev/null; then
+    local reply=''; read -r reply </dev/tty 2>/dev/null || reply=''
+    case "$reply" in y|Y|yes|YES) return 0 ;; *) die "aborted; not confirmed" ;; esac
+  fi
+  die "no confirmation channel (no GUI, no tty) — run from a terminal"
+}

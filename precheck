@@ -29,8 +29,8 @@ case "$tool" in
     if printf '%s' "$cmd" | grep -Eq '(>>?|rm |mv |cp |tee |truncate|sed -i)[^|;&]*(\.git/config|\.git/hooks|commit-gate)'; then
       deny "commit-gate: the agent may not modify gate state, native hooks, or .git/config."
     fi
-    if printf '%s' "$cmd" | grep -Eq '(^[[:space:]]*|[;&|][[:space:]]*)(approve|approve-push)([[:space:]]|$)'; then
-      deny "commit-gate: the agent may not run approve/approve-push — the granter is human-only (run it via ! or a separate terminal)."
+    if printf '%s' "$cmd" | grep -Eq '(^[[:space:]]*|[;&|][[:space:]]*)(approve|approve-push|gate-disable)([[:space:]]|$)'; then
+      deny "commit-gate: the agent may not run approve/approve-push/gate-disable — these are human-only (run via ! or a terminal)."
     fi
     exit 0 ;;
   Write|Edit|MultiEdit|NotebookEdit)

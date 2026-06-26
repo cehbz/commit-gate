@@ -10,19 +10,23 @@ while [ $# -gt 0 ]; do
     -F) mode=file; src="$2"; shift 2 ;;
     --plan) mode=plan; src="$2"; shift 2 ;;
     --yes) assume_yes=1; shift ;;
-    *) die "usage: approve [-F file | --plan plan.md] [--yes]" ;;
+    *) die "usage: approve [-F file | --plan plan.md] [--yes]   (bare: reads the preloaded pending file)" ;;
   esac
 done
 
 require_enabled
 GATE="$(gate_dir)"; MANIFEST="$GATE/approved"; mkdir -p "$GATE"
 
+# Bare `approve` (no -F/--plan) uses the agent-preloaded pending file if present, else stdin.
+PENDING="$(_common_dir)/cg-pending"; consume_pending=0
+if [ "$mode" = stdin ] && [ -f "$PENDING" ]; then mode=file; src="$PENDING"; consume_pending=1; fi
+
 MSGS=()
 add_msg() { [ -n "$1" ] && MSGS[${#MSGS[@]}]="$1" || true; }
 case "$mode" in
   stdin) add_msg "$(cat)" ;;
   file)
-    [ -r "$src" ] || die "cannot read: $src"   # -r (not -f) so <(...) works
+    [ -r "$src" ] || die "cannot read: $src"
     cur=''
     while IFS= read -r line || [ -n "$line" ]; do
       if [ "$line" = "$SEP" ]; then add_msg "$cur"; cur=''
@@ -43,14 +47,18 @@ esac
 echo "commit-gate: about to approve ${#MSGS[@]} message(s):"
 i=0; while [ $i -lt ${#MSGS[@]} ]; do echo "--- [$((i+1))] ---"; printf '%s\n' "${MSGS[$i]}"; i=$((i+1)); done
 echo "-----------"
+
 if [ "$assume_yes" -ne 1 ]; then
-  printf 'Approve all of the above? [y/N] '
-  read reply < /dev/tty || reply=''
-  case "$reply" in y|Y|yes|YES) ;; *) die "aborted; nothing approved";; esac
+  prompt="commit-gate — approve ${#MSGS[@]} message(s)?"
+  i=0; while [ $i -lt ${#MSGS[@]} ]; do prompt="$prompt
+$(printf '%s\n' "${MSGS[$i]}" | head -n1)"; i=$((i+1)); done
+  confirm "$prompt"
 fi
+
 i=0
 while [ $i -lt ${#MSGS[@]} ]; do
   msg="${MSGS[$i]}"; i=$((i+1))
   printf '%s  %s\n' "$(printf '%s' "$msg" | "$CANONICAL")" "$(printf '%s\n' "$msg" | head -n 1)" >> "$MANIFEST"
 done
 echo "commit-gate: recorded ${#MSGS[@]} approval(s)"
+[ "$consume_pending" -eq 1 ] && rm -f "$PENDING" || true
