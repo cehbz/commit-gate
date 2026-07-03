@@ -20,3 +20,7 @@ PreToolUse precheck is an explicit Tier-1 best-effort deterrent, not a boundary.
 ## ergonomics
 - `approve --plan` parses only single-line `-m "…"`; multi-line / trailer messages need `-F` with the `@@COMMIT-GATE-SEP@@` separator.
 - Tests leak temp dirs (no `trap … EXIT`); cosmetic.
+
+## bang command flakiness
+- cut and paste of ! commands seems unreliable, often (always?) needs hand editing before it works. Seems to echo just the path component?
+- bare approve via the ! shell reported recorded 1 approval(s) and consumed cg-pending, but the manifest was never appended (0 bytes, mtime unchanged) — observed 2026-07-03 in the claude-knowledge repo; commit subsequently rejected.
