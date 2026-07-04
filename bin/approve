@@ -61,4 +61,9 @@ while [ $i -lt ${#MSGS[@]} ]; do
   printf '%s  %s\n' "$(printf '%s' "$msg" | "$CANONICAL")" "$(printf '%s\n' "$msg" | head -n 1)" >> "$MANIFEST"
 done
 echo "commit-gate: recorded ${#MSGS[@]} approval(s)"
+# New approvals mean new content is coming: a push authorized before them is stale.
+if [ -e "$GATE/push-token" ]; then
+  rm -f "$GATE/push-token"
+  echo "commit-gate: push token invalidated (approvals postdate it — re-run approve-push)"
+fi
 [ "$consume_pending" -eq 1 ] && rm -f "$PENDING" || true

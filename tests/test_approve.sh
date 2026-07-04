@@ -24,6 +24,12 @@ printf 'feat: pend' > "$common/cg-pending"
 grep -q "  feat: pend\$" "$gate/approved" || fail 'pending not recorded'
 [ -e "$common/cg-pending" ] && fail 'pending not consumed' || true
 
+# recording new approvals invalidates any live push token (stale-content push guard)
+"$BIN/approve-push" --yes >/dev/null
+[ -e "$gate/push-token" ] || fail 'precondition: token not written'
+printf 'feat: after-token' | "$BIN/approve" --yes >/dev/null
+[ -e "$gate/push-token" ] && fail 'push token survived new approvals' || true
+
 repo2="$(mkrepo)"; cd "$repo2"
 if printf 'x' | "$BIN/approve" --yes 2>/dev/null; then fail 'approve allowed when not enabled'; fi
 echo "OK: test_approve"
