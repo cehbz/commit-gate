@@ -16,8 +16,6 @@ func notImplemented() int {
 	return 1
 }
 
-func cmdCommitMsg(_ []string) int      { return notImplemented() } // Task 12
-func cmdPrePush(_ []string) int        { return notImplemented() } // Task 12
 func cmdApprove(_ []string) int        { return notImplemented() } // Task 11
 func cmdApprovePush(_ []string) int    { return notImplemented() } // Task 11
 func cmdGateEnable(_ []string) int     { return notImplemented() } // Task 13
