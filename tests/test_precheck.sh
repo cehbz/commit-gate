@@ -40,6 +40,11 @@ denies "git -c core.hooksPath=/tmp/evil commit -m x" || fail 'per-invocation hoo
 # check 4: write-verb + gate-state target
 denies "echo y >> .git/commit-gate/approved" || fail 'manifest write'
 silent "rm -rf /tmp/x; echo .git/config" "$ungated" || fail 'verb/target must not cross ;'
+denies "rm -rf .git/commit-gate" || fail 'rm gate state'
+silent "cat notes.txt | grep .git/config" "$ungated" || fail 'read mention false-denied'
+silent 'cat <<EOF
+rm -rf .git/commit-gate
+EOF' "$ungated" || fail 'heredoc content false-denied'
 
 # check 5: approve / approve-push / gate-disable, anchored to a command position
 denies "approve --yes -F /tmp/x" || fail 'approve not denied'
