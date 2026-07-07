@@ -44,7 +44,7 @@ func scan(command string, depth int) Result {
 			redirs = append(redirs, Redirect{Target: fromWord(r.Word), Write: w})
 		}
 		if call, ok := stmt.Cmd.(*syntax.CallExpr); ok && len(call.Args) > 0 {
-			inv := Invocation{Name: fromWord(call.Args[0]), Redirects: redirs}
+			inv := Invocation{Name: fromWord(call.Args[0]), Redirects: redirs, HasCommand: true}
 			for _, a := range call.Args[1:] {
 				inv.Args = append(inv.Args, fromWord(a))
 			}

@@ -21,6 +21,8 @@ type Invocation struct {
 	Name      Word
 	Args      []Word
 	Redirects []Redirect
+
+	HasCommand bool // true for a real CallExpr-derived invocation (has a command word, even if non-literal); false for the synthetic redirect-only carrier
 }
 
 type Result struct {

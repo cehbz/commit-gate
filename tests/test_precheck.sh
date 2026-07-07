@@ -62,6 +62,9 @@ silent "git log --grep approve" "$ungated" || fail 'approve-as-arg false-denied'
 silent "grep gate-disable notes.txt" "$ungated" || fail 'gate-disable-as-arg false-denied'
 silent "clear-approvals" "$ungated" || fail 'clear-approvals false-denied'
 silent "disapprove;foo" "$ungated" || fail 'disapprove false-denied even adjacent to ;'
+denies "$(printf 'foo\ngate-disable')" || fail 'newline-separated gate-disable not denied'
+denies "bash -c 'approve --yes'" || fail 'approve inside -c not denied'
+denies 'echo "unclosed' || fail 'parse failure must deny (fail closed)'
 
 # check 6: reminder on a real git commit/push, only in a gated repo
 reminds "git commit -m x" "$gated" || fail 'reminder missing on commit in gated repo'

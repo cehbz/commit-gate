@@ -185,6 +185,27 @@ func TestScanPlainSingleQuoteStaysLiteral(t *testing.T) {
 	}
 }
 
+func TestScanHasCommand(t *testing.T) {
+	// real commands (even non-literal name) carry HasCommand=true
+	for _, cmd := range []string{`echo hi`, `$(which approve)`, `$CMD`, `$(which approve) > /tmp/out`} {
+		inv := Scan(cmd).Invocations[0]
+		if !inv.HasCommand {
+			t.Errorf("%q: HasCommand=false, want true", cmd)
+		}
+	}
+	// the synthetic redirect-only carrier carries HasCommand=false
+	r := Scan(`{ echo a; } > /tmp/f`)
+	var carrier *Invocation
+	for i := range r.Invocations {
+		if !r.Invocations[i].HasCommand {
+			carrier = &r.Invocations[i]
+		}
+	}
+	if carrier == nil {
+		t.Fatal("no synthetic carrier found for compound redirect")
+	}
+}
+
 func TestScanBraceExpansionIsNonLiteral(t *testing.T) {
 	// Brace expansion is unconditional in bash: gat{e,e}-disable executes
 	// gate-disable, so a literal-match denylist must treat it as unresolvable.

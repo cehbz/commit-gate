@@ -35,7 +35,7 @@ func remind(msg string) Decision { return Decision{Kind: AllowContext, Reason: m
 
 type bashRule func(inv shellscan.Invocation, tc ToolCall, ctx Ctx) (Decision, bool)
 
-var bashRules = []bashRule{ruleNoVerify, ruleDisabledKey, ruleHooksPath, ruleWriteTargets} // R5 appended by later task
+var bashRules = []bashRule{ruleNoVerify, ruleDisabledKey, ruleHooksPath, ruleWriteTargets, ruleHumanOnly}
 
 func Decide(tc ToolCall, ctx Ctx) Decision {
 	switch tc.ToolName {
