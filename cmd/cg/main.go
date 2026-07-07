@@ -38,6 +38,8 @@ func dispatch(args []string) int {
 		return cmdPrecheck()
 	case "sessioncheck":
 		return cmdSessioncheck()
+	case "canonical":
+		return cmdCanonical()
 	case "commit-msg":
 		return cmdCommitMsg(rest)
 	case "pre-push":
