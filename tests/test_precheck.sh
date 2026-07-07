@@ -26,6 +26,7 @@ silent "git status; echo commit -n" "$ungated" || fail 'no-verify must not cross
 
 # check 2: commit-gate.disabled mention
 denies "git config commit-gate.disabled true" || fail 'disable flag'
+silent "git config --get commit-gate.disabled" "$ungated" || fail 'disabled read false-denied'
 
 # check 3: core.hooksPath (enable exception; the compared path is quoted, so any
 # regex-special character in it, e.g. a literal '.', is matched literally; and the
@@ -33,6 +34,8 @@ denies "git config commit-gate.disabled true" || fail 'disable flag'
 denies "git config core.hooksPath /tmp/evil" || fail 'hooksPath evil'
 silent "git config core.hooksPath $GH" "$ungated" || fail 'enable allowed'
 denies "git config core.hooksPath $GH/sub" || fail 'hooksPath prefix bypass'
+silent "git config --get core.hooksPath" "$ungated" || fail 'hooksPath read false-denied'
+denies "git -c core.hooksPath=/tmp/evil commit -m x" || fail 'per-invocation hooksPath override'
 
 # check 4: write-verb + gate-state target
 denies "echo y >> .git/commit-gate/approved" || fail 'manifest write'

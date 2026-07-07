@@ -57,6 +57,18 @@ func TestGitConfigKVsStopsAtSubcommand(t *testing.T) {
 	}
 }
 
+func TestGitSubcommandArgs(t *testing.T) {
+	// -C's value token "config" must not be mistaken for the subcommand.
+	sub, rest, ok := GitSubcommandArgs(Scan(`git -C config config core.hooksPath /evil`).Invocations[0])
+	if !ok || sub != "config" || len(rest) != 2 || rest[0].Text != "core.hooksPath" || rest[1].Text != "/evil" {
+		t.Fatalf("got sub=%q rest=%+v ok=%v", sub, rest, ok)
+	}
+	// non-literal subcommand position -> unresolvable
+	if _, _, ok := GitSubcommandArgs(Scan(`git $SUB`).Invocations[0]); ok {
+		t.Error("non-literal subcommand must be unresolvable")
+	}
+}
+
 func TestHasArg(t *testing.T) {
 	inv := Scan(`git commit --no-verify -m x`).Invocations[0]
 	if !HasArg(inv, "--no-verify") {

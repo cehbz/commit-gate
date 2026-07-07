@@ -16,38 +16,48 @@ var gitValueFlags = map[string]bool{
 
 func isGit(inv Invocation) bool { return Basename(inv.Name) == "git" }
 
+// GitSubcommandArgs returns the git subcommand and the args following it,
+// skipping git's global value-consuming flags (-C/--git-dir/--work-tree/
+// --namespace/--exec-path and -c key=value). ok=false if inv is not a git
+// invocation or a non-literal word occupies the subcommand position
+// (unresolvable: we can't prove what runs).
+func GitSubcommandArgs(inv Invocation) (sub string, rest []Word, ok bool) {
+	if !isGit(inv) {
+		return "", nil, false
+	}
+	skip := false
+	for i, a := range inv.Args {
+		if skip {
+			skip = false
+			continue
+		}
+		if a.Literal && gitValueFlags[a.Text] {
+			skip = true
+			continue
+		}
+		if a.Literal && a.Text == "-c" {
+			skip = true
+			continue
+		}
+		if !a.Literal {
+			return "", nil, false
+		}
+		if strings.HasPrefix(a.Text, "-") {
+			continue
+		}
+		return a.Text, inv.Args[i+1:], true
+	}
+	return "", nil, false
+}
+
 // GitSubcommand returns the first non-flag argument of a git Invocation (its
 // subcommand, e.g. "commit", "push"), skipping the values of global flags
 // that take one (-C, --git-dir, --work-tree, --namespace, --exec-path) and
 // skipping `-c k=v` (single-arg form). ok is false if inv is not a git
 // invocation or no subcommand argument is found.
 func GitSubcommand(inv Invocation) (string, bool) {
-	if !isGit(inv) {
-		return "", false
-	}
-	skip := false
-	for _, a := range inv.Args {
-		if skip {
-			skip = false
-			continue
-		}
-		if a.Literal && gitValueFlags[a.Text] {
-			skip = true // -C/--git-dir/... consume their value
-			continue
-		}
-		if a.Literal && a.Text == "-c" {
-			skip = true // -c consumes its key=value
-			continue
-		}
-		if !a.Literal {
-			return "", false // unresolvable word in the subcommand region: can't prove what runs
-		}
-		if strings.HasPrefix(a.Text, "-") {
-			continue // other global flag (guaranteed literal here)
-		}
-		return a.Text, true
-	}
-	return "", false
+	sub, _, ok := GitSubcommandArgs(inv)
+	return sub, ok
 }
 
 // GitConfigKVs returns every `-c` per-invocation config override on a git
