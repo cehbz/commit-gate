@@ -11,9 +11,19 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 )
 
-// Scan parses command and returns every invocation it contains. On a shell
-// syntax error, Result.ParseErr is true and Invocations is empty.
+// Scan parses command and returns every invocation it contains. A nested
+// (-c payload) parse failure sets Result.ParseErr true while still
+// returning invocations already collected from sibling statements.
 func Scan(command string) Result {
+	return scan(command, 0)
+}
+
+// scan is the depth-carrying implementation behind Scan. Invocations of
+// bash/sh/zsh with a literal `-c` argument recurse into the next literal
+// argument as shell source, up to a depth of 4; a non-literal `-c` payload
+// (e.g. a variable or command substitution) is out of scope and is neither
+// recursed into nor treated as a parse error.
+func scan(command string, depth int) Result {
 	var res Result
 	parser := syntax.NewParser(syntax.Variant(syntax.LangBash), syntax.KeepComments(false))
 	file, err := parser.Parse(strings.NewReader(command), "")
@@ -39,6 +49,18 @@ func Scan(command string) Result {
 				inv.Args = append(inv.Args, fromWord(a))
 			}
 			res.Invocations = append(res.Invocations, inv)
+			if bn := Basename(inv.Name); (bn == "bash" || bn == "sh" || bn == "zsh") && depth < 4 {
+				for k := 0; k < len(inv.Args)-1; k++ {
+					if inv.Args[k].Literal && inv.Args[k].Text == "-c" && inv.Args[k+1].Literal {
+						inner := scan(inv.Args[k+1].Text, depth+1)
+						res.Invocations = append(res.Invocations, inner.Invocations...)
+						if inner.ParseErr {
+							res.ParseErr = true
+						}
+						break
+					}
+				}
+			}
 			return true
 		}
 		// Compound command (or assignment-only statement) with redirects:
