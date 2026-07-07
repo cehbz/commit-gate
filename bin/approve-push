@@ -1,8 +1,0 @@
-#!/bin/bash
-set -eu
-self="$0"; while [ -L "$self" ]; do l="$(readlink "$self")"; case "$l" in /*) self="$l";; *) self="$(dirname "$self")/$l";; esac; done
-SELF_DIR="$(cd "$(dirname "$self")" && pwd)"; . "$SELF_DIR/../lib/common"
-require_enabled
-[ "${1:-}" = "--yes" ] || confirm "commit-gate — authorize ONE push from this repo?"
-g="$(gate_dir)"; date > "$g/push-token" 2>/dev/null || : > "$g/push-token"
-echo "commit-gate: one push authorized"
