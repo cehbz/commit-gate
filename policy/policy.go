@@ -1,6 +1,10 @@
 package policy
 
-import "github.com/cehbz/commit-gate/shellscan"
+import (
+	"strings"
+
+	"github.com/cehbz/commit-gate/shellscan"
+)
 
 type ToolCall struct {
 	ToolName string
@@ -42,7 +46,7 @@ func Decide(tc ToolCall, ctx Ctx) Decision {
 	case "Bash":
 		return decideBashCmd(tc, ctx)
 	case "Write", "Edit", "MultiEdit", "NotebookEdit":
-		return decideFileTool(tc, ctx) // Task 9; stub returns silent() until then
+		return decideFileTool(tc, ctx) // R6
 	default:
 		return silent()
 	}
@@ -60,18 +64,44 @@ func decideBashCmd(tc ToolCall, ctx Ctx) Decision {
 			}
 		}
 	}
-	return reminderOrSilent(res, tc, ctx) // Task 9 fills in R7; until then return silent()
+	return reminderOrSilent(res, tc, ctx) // R7
 }
 
-// TODO(task-9): reminderOrSilent is a stub — replace with R7 (AllowContext reminder
-// on a real git commit/push in a gated repo). Currently always silent().
-func reminderOrSilent(_ shellscan.Result, _ ToolCall, _ Ctx) Decision {
+// R7: a reminder (AllowContext, non-blocking) on a real git commit/push in a
+// gated repo. Deny from R1-R5 always wins — this only runs when no bash rule
+// already denied the command.
+func reminderOrSilent(res shellscan.Result, tc ToolCall, ctx Ctx) Decision {
+	if !ctx.GatedCWD {
+		return silent()
+	}
+	for _, inv := range res.Invocations {
+		if sub, ok := shellscan.GitSubcommand(inv); ok && (sub == "commit" || sub == "push") {
+			return remind(MsgReminder)
+		}
+	}
 	return silent()
 }
 
-// TODO(task-9): decideFileTool is a stub — replace with R6 (file-tool write-target
-// checks for gate state, native hooks, .git/config, settings.json). Currently
-// always silent().
-func decideFileTool(_ ToolCall, _ Ctx) Decision {
+// R6: Write/Edit/MultiEdit/NotebookEdit write-target checks. settings.json is
+// checked before protectedClass since it isn't part of that (Bash-oriented)
+// classification. The gate SOURCE repo is deliberately not protected here —
+// only installed artifacts (install dir, gate state, native hooks, git config).
+func decideFileTool(tc ToolCall, ctx Ctx) Decision {
+	if tc.FilePath == "" {
+		return silent()
+	}
+	resolved := ctx.Resolve(tc.CWD, tc.FilePath)
+	parts := strings.Split(resolved, "/")
+	if len(parts) >= 2 && parts[len(parts)-1] == "settings.json" && parts[len(parts)-2] == ".claude" {
+		return deny(MsgEditSettings)
+	}
+	switch protectedClass(resolved, ctx) {
+	case "install", "gatestate":
+		return deny(MsgEditGate)
+	case "githooks":
+		return deny(MsgEditHooks)
+	case "gitconfig":
+		return deny(MsgEditConfig)
+	}
 	return silent()
 }

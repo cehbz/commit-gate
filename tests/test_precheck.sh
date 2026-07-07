@@ -81,5 +81,7 @@ out="$(jq -cn '{tool_name:"Write",tool_input:{file_path:"/x/.git/hooks/commit-ms
 printf '%s' "$out" | grep -q '"permissionDecision":"deny"' || fail 'native hook write'
 out="$(jq -cn '{tool_name:"Write",tool_input:{file_path:"/x/src/main.go"}}' | "$PC")"
 [ -z "$out" ] || fail 'normal write'
+out="$(jq -cn '{tool_name:"Write",tool_input:{file_path:"/Users/h/projects/commit-gate/policy/policy.go"}}' | "$PC")"
+[ -z "$out" ] || fail 'gate SOURCE repo must be editable (installed-artifacts boundary)'
 
 echo "OK: test_precheck"
