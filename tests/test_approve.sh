@@ -32,4 +32,14 @@ printf 'feat: after-token' | "$BIN/approve" --yes >/dev/null
 
 repo2="$(mkrepo)"; cd "$repo2"
 if printf 'x' | "$BIN/approve" --yes 2>/dev/null; then fail 'approve allowed when not enabled'; fi
+
+# approve resolves pending state relative to the CALLER's cwd, not a fixed target:
+# running it from a DIFFERENT gated repo must not pick up another repo's pending message.
+repoA="$(mkrepo)"; ( cd "$repoA" && "$BIN/gate-enable" >/dev/null )
+repoB="$(mkrepo)"; ( cd "$repoB" && "$BIN/gate-enable" >/dev/null )
+printf 'feat: only-in-A' > "$repoA/.git/cg-pending"
+( cd "$repoB" && "$BIN/approve" --yes </dev/null 2>/dev/null ) && fail 'approve from repoB wrongly found a message'
+[ -e "$repoA/.git/cg-pending" ] || fail 'repoA pending was wrongly consumed from repoB'
+grep -q 'only-in-A' "$repoB/.git/commit-gate/approved" 2>/dev/null && fail 'repoA message wrongly recorded in repoB manifest' || true
+
 echo "OK: test_approve"
