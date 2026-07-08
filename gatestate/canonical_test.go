@@ -17,9 +17,9 @@ func TestCanonicalProperties(t *testing.T) {
 		t.Fatalf("not 64-hex: %q", base)
 	}
 	same := []string{
-		"subj\r\n\r\nbody line",         // CRLF fold
-		"subj  \n\t\nbody line\t ",       // trailing ws per line
-		"subj\n\nbody line\n\n\n",        // trailing blank lines
+		"subj\r\n\r\nbody line",    // CRLF fold
+		"subj  \n\t\nbody line\t ", // trailing ws per line
+		"subj\n\nbody line\n\n\n",  // trailing blank lines
 	}
 	for _, m := range same {
 		if CanonicalHash(m) != base {
