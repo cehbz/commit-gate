@@ -23,10 +23,16 @@ denies "git commit -n -m x" || fail '-n'
 silent "git commit -many -m x" "$ungated" || fail '-n false-positive on -many'
 silent "echo -n hi" "$ungated" || fail 'echo -n fp'
 silent "git status; echo commit -n" "$ungated" || fail 'no-verify must not cross ;'
+denies "git push --no-verify origin main" || fail 'push no-verify'
+silent "git push -n origin main" "$ungated" || fail 'push -n is dry-run not no-verify'
 
 # check 2: commit-gate.disabled mention
 denies "git config commit-gate.disabled true" || fail 'disable flag'
 silent "git config --get commit-gate.disabled" "$ungated" || fail 'disabled read false-denied'
+
+# check 2b: GIT_CONFIG_* environment config injection (env-var equivalent of -c)
+denies "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit-gate.disabled GIT_CONFIG_VALUE_0=true git commit -m x" || fail 'GIT_CONFIG env disable'
+silent "FOO=bar git status" "$ungated" || fail 'non-config env fine'
 
 # check 3: core.hooksPath (enable exception; the compared path is quoted, so any
 # regex-special character in it, e.g. a literal '.', is matched literally; and the

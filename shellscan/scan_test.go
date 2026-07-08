@@ -206,6 +206,40 @@ func TestScanHasCommand(t *testing.T) {
 	}
 }
 
+func TestScanAssigns(t *testing.T) {
+	// `VAR=val cmd` prefix assignments must be surfaced on the Invocation so
+	// policy can see env-var config injection (e.g. GIT_CONFIG_* on git).
+	r := Scan(`GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit-gate.disabled git commit -F /tmp/m`)
+	inv := r.Invocations[0]
+	if len(inv.Assigns) != 2 {
+		t.Fatalf("got %d assigns, want 2: %+v", len(inv.Assigns), inv.Assigns)
+	}
+	if inv.Assigns[0].Name != "GIT_CONFIG_COUNT" || inv.Assigns[0].Value.Text != "1" || !inv.Assigns[0].Value.Literal {
+		t.Errorf("assign 0: %+v", inv.Assigns[0])
+	}
+	if inv.Assigns[1].Name != "GIT_CONFIG_KEY_0" || inv.Assigns[1].Value.Text != "commit-gate.disabled" {
+		t.Errorf("assign 1: %+v", inv.Assigns[1])
+	}
+
+	// assignment-only statement (no command) still produces no invocation.
+	if r := Scan(`FOO=bar`); len(r.Invocations) != 0 {
+		t.Errorf("assignment-only: got %d invocations, want 0", len(r.Invocations))
+	}
+
+	// a plain command with no prefix assignments has a nil/empty Assigns slice.
+	if inv := Scan(`git status`).Invocations[0]; len(inv.Assigns) != 0 {
+		t.Errorf("git status: got Assigns=%+v, want none", inv.Assigns)
+	}
+
+	// the synthetic redirect-only carrier has no Assigns.
+	r2 := Scan(`{ echo a; } > /tmp/f`)
+	for _, i := range r2.Invocations {
+		if !i.HasCommand && len(i.Assigns) != 0 {
+			t.Errorf("synthetic carrier has Assigns: %+v", i.Assigns)
+		}
+	}
+}
+
 func TestScanBraceExpansionIsNonLiteral(t *testing.T) {
 	// Brace expansion is unconditional in bash: gat{e,e}-disable executes
 	// gate-disable, so a literal-match denylist must treat it as unresolvable.

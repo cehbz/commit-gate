@@ -6,14 +6,34 @@ import (
 	"github.com/cehbz/commit-gate/shellscan"
 )
 
-// R1: git commit carrying --no-verify/-n on the same invocation.
+// R1: git commit/push carrying --no-verify (or commit's -n alias) on the same
+// invocation. For push, -n means --dry-run (harmless) and is NOT no-verify —
+// only the explicit --no-verify flag skips the pre-push hook.
 func ruleNoVerify(inv shellscan.Invocation, _ ToolCall, _ Ctx) (Decision, bool) {
 	sub, ok := shellscan.GitSubcommand(inv)
-	if !ok || sub != "commit" {
+	if !ok {
 		return Decision{}, false
 	}
-	if shellscan.HasArg(inv, "-n") || shellscan.HasArg(inv, "--no-verify") {
-		return deny(MsgNoVerify), true
+	switch sub {
+	case "commit":
+		if shellscan.HasArg(inv, "-n") || shellscan.HasArg(inv, "--no-verify") {
+			return deny(MsgNoVerify), true
+		}
+	case "push":
+		if shellscan.HasArg(inv, "--no-verify") {
+			return deny(MsgNoVerify), true
+		}
+	}
+	return Decision{}, false
+}
+
+// R2/R3 (environment channel): git config injection via GIT_CONFIG_*
+// environment assignments — the same effective power as `-c` to disable the
+// gate or redirect core.hooksPath, but on the assignment prefix that is not an
+// Arg. Denied on any git invocation carrying it.
+func ruleEnvConfigInjection(inv shellscan.Invocation, _ ToolCall, _ Ctx) (Decision, bool) {
+	if shellscan.GitConfigEnvInjection(inv) {
+		return deny(MsgEnvConfig), true
 	}
 	return Decision{}, false
 }

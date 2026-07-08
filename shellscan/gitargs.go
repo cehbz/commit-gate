@@ -107,3 +107,39 @@ func HasArg(inv Invocation, s string) bool {
 	}
 	return false
 }
+
+// HasAssign reports whether inv has a prefix assignment (VAR=val cmd) whose
+// name is exactly name.
+func HasAssign(inv Invocation, name string) bool {
+	for _, a := range inv.Assigns {
+		if a.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// gitConfigEnvNames are the env-var channels git honors identically to `-c`:
+// GIT_CONFIG_COUNT + GIT_CONFIG_KEY_n/GIT_CONFIG_VALUE_n, and the
+// GIT_CONFIG/GIT_CONFIG_GLOBAL/GIT_CONFIG_SYSTEM file redirects.
+var gitConfigEnvNames = map[string]bool{
+	"GIT_CONFIG_COUNT":  true,
+	"GIT_CONFIG":        true,
+	"GIT_CONFIG_GLOBAL": true,
+	"GIT_CONFIG_SYSTEM": true,
+}
+
+// GitConfigEnvInjection reports whether inv is a git invocation carrying a
+// prefix assignment on one of git's env-var config-override channels — the
+// same effective power as `-c`, but invisible to Args-based scanning.
+func GitConfigEnvInjection(inv Invocation) bool {
+	if !isGit(inv) {
+		return false
+	}
+	for _, a := range inv.Assigns {
+		if gitConfigEnvNames[a.Name] || strings.HasPrefix(a.Name, "GIT_CONFIG_KEY_") {
+			return true
+		}
+	}
+	return false
+}

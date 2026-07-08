@@ -69,6 +69,38 @@ func TestGitSubcommandArgs(t *testing.T) {
 	}
 }
 
+func TestHasAssign(t *testing.T) {
+	inv := Scan(`GIT_CONFIG_COUNT=1 git commit -F /tmp/m`).Invocations[0]
+	if !HasAssign(inv, "GIT_CONFIG_COUNT") {
+		t.Error("HasAssign should find GIT_CONFIG_COUNT")
+	}
+	if HasAssign(inv, "GIT_CONFIG_KEY_0") {
+		t.Error("HasAssign must not find an absent name")
+	}
+}
+
+func TestGitConfigEnvInjection(t *testing.T) {
+	cases := []struct {
+		cmd  string
+		want bool
+	}{
+		{"GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit-gate.disabled GIT_CONFIG_VALUE_0=true git commit -F /tmp/m", true},
+		{"GIT_CONFIG_KEY_0=core.hooksPath git commit -F /tmp/m", true},
+		{"GIT_CONFIG_GLOBAL=/tmp/evil git push origin main", true},
+		{"GIT_CONFIG_SYSTEM=/tmp/evil git push origin main", true},
+		{"GIT_CONFIG=/tmp/evil git status", true},
+		{"FOO=bar git status", false},
+		{"GIT_CONFIG_COUNT=1 echo hi", false}, // not a git invocation
+		{"git status", false},
+	}
+	for _, c := range cases {
+		inv := Scan(c.cmd).Invocations[0]
+		if got := GitConfigEnvInjection(inv); got != c.want {
+			t.Errorf("%q: got %v, want %v", c.cmd, got, c.want)
+		}
+	}
+}
+
 func TestHasArg(t *testing.T) {
 	inv := Scan(`git commit --no-verify -m x`).Invocations[0]
 	if !HasArg(inv, "--no-verify") {

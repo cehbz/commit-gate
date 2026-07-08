@@ -48,6 +48,12 @@ func scan(command string, depth int) Result {
 			for _, a := range call.Args[1:] {
 				inv.Args = append(inv.Args, fromWord(a))
 			}
+			for _, as := range call.Assigns {
+				if as == nil || as.Name == nil {
+					continue
+				}
+				inv.Assigns = append(inv.Assigns, Assign{Name: as.Name.Value, Value: fromWord(as.Value)})
+			}
 			res.Invocations = append(res.Invocations, inv)
 			if bn := Basename(inv.Name); (bn == "bash" || bn == "sh" || bn == "zsh") && depth < 4 {
 				for k := 0; k < len(inv.Args)-1; k++ {

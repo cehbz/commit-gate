@@ -11,6 +11,13 @@ func TestR1NoVerify(t *testing.T) {
 	wantSilent(t, "git status; echo commit -n")            // cross-statement: no contamination
 	wantSilent(t, "echo --no-verify")                      // word in another invocation
 	wantSilent(t, `git commit -m "use --no-verify never"`) // string content is data... -m VALUE is an arg; see note
+
+	// push --no-verify skips the pre-push hook (the only push approval gate).
+	wantDeny(t, "git push --no-verify origin main", MsgNoVerify)
+	wantDeny(t, "git push --no-verify", MsgNoVerify)
+	// push -n is --dry-run (harmless), NOT no-verify; must not be denied.
+	wantSilent(t, "git push -n origin main")
+	wantSilent(t, "git push origin main")
 }
 
 func TestR2Disabled(t *testing.T) {
@@ -39,6 +46,14 @@ func TestR2R3FlagBoundaryBypasses(t *testing.T) {
 	// --file/-f consume their value; the real key must still be seen.
 	wantDeny(t, "git config --file /tmp/x commit-gate.disabled true", MsgDisabled)
 	wantDeny(t, "git config -f /tmp/x core.hooksPath /evil", MsgHooksPath)
+}
+
+func TestREnvConfigInjection(t *testing.T) {
+	wantDeny(t, "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=commit-gate.disabled GIT_CONFIG_VALUE_0=true git commit -F /tmp/m", MsgEnvConfig)
+	wantDeny(t, "GIT_CONFIG_KEY_0=core.hooksPath git commit -F /tmp/m", MsgEnvConfig)
+	wantDeny(t, "GIT_CONFIG_GLOBAL=/tmp/evil git push origin main", MsgEnvConfig)
+	wantSilent(t, "FOO=bar git status")         // non-GIT_CONFIG env is fine
+	wantSilent(t, "GIT_CONFIG_COUNT=1 echo hi") // not a git invocation
 }
 
 func TestR2R3CaseInsensitive(t *testing.T) {

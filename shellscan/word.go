@@ -17,10 +17,18 @@ type Redirect struct {
 	Write  bool // >, >>, >|, &>, &>>, <> (output-capable); false for <, heredocs, fd-dups
 }
 
+// Assign is a `NAME=value` prefix assignment scoped to a single invocation,
+// e.g. the GIT_CONFIG_COUNT=1 in `GIT_CONFIG_COUNT=1 git commit`.
+type Assign struct {
+	Name  string
+	Value Word
+}
+
 type Invocation struct {
 	Name      Word
 	Args      []Word
 	Redirects []Redirect
+	Assigns   []Assign
 
 	HasCommand bool // true for a real CallExpr-derived invocation (has a command word, even if non-literal); false for the synthetic redirect-only carrier
 }
