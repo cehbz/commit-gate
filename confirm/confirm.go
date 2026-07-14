@@ -50,7 +50,10 @@ var ReadTTY = func(prompt string) (string, error) {
 	return strings.TrimRight(reply, "\r\n"), nil
 }
 
-func hasOsascript() bool {
+// HasOsascript reports whether the osascript binary is on PATH. It is a
+// package var so tests can force either branch without depending on whether
+// the host actually has osascript installed.
+var HasOsascript = func() bool {
 	_, err := exec.LookPath("osascript")
 	return err == nil
 }
@@ -64,7 +67,7 @@ func hasOsascript() bool {
 //   - no channel available at all -> "no confirmation channel (no GUI, no
 //     tty) — run from a terminal".
 func Confirm(prompt string) error {
-	if GOOS == "darwin" && hasOsascript() {
+	if GOOS == "darwin" && HasOsascript() {
 		if err := RunOsascript(prompt); err != nil {
 			return errors.New("aborted; not confirmed")
 		}

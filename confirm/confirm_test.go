@@ -8,9 +8,9 @@ import (
 // withSeams swaps the three package-var seams for the duration of the test.
 func withSeams(t *testing.T, goos string, osa func(string) error, tty func(string) (string, error)) {
 	t.Helper()
-	origGOOS, origOsa, origTTY := GOOS, RunOsascript, ReadTTY
+	origGOOS, origOsa, origTTY, origHas := GOOS, RunOsascript, ReadTTY, HasOsascript
 	GOOS, RunOsascript, ReadTTY = goos, osa, tty
-	t.Cleanup(func() { GOOS, RunOsascript, ReadTTY = origGOOS, origOsa, origTTY })
+	t.Cleanup(func() { GOOS, RunOsascript, ReadTTY, HasOsascript = origGOOS, origOsa, origTTY, origHas })
 }
 
 func failOsascript(t *testing.T) func(string) error {
@@ -29,6 +29,7 @@ func failReadTTY(t *testing.T) func(string) (string, error) {
 
 func TestConfirmDarwinOsascriptOK(t *testing.T) {
 	withSeams(t, "darwin", func(string) error { return nil }, failReadTTY(t))
+	HasOsascript = func() bool { return true }
 	if err := Confirm("proceed?"); err != nil {
 		t.Fatalf("want nil, got %v", err)
 	}
@@ -36,6 +37,7 @@ func TestConfirmDarwinOsascriptOK(t *testing.T) {
 
 func TestConfirmDarwinOsascriptError(t *testing.T) {
 	withSeams(t, "darwin", func(string) error { return errors.New("user hit Cancel") }, failReadTTY(t))
+	HasOsascript = func() bool { return true }
 	err := Confirm("proceed?")
 	if err == nil || err.Error() != "aborted; not confirmed" {
 		t.Fatalf("want aborted error, got %v", err)
@@ -78,13 +80,11 @@ func TestConfirmNoChannel(t *testing.T) {
 }
 
 // darwin without osascript on PATH must fall through to the TTY channel,
-// not silently succeed.
+// not silently succeed. HasOsascript is a seam, so this exercises the real
+// darwin branch with osascript absent rather than approximating it via GOOS.
 func TestConfirmDarwinWithoutOsascriptFallsBackToTTY(t *testing.T) {
-	// hasOsascript() does a real PATH lookup; this test only exercises the
-	// non-darwin-equivalent fallback semantics via GOOS gating, so use a
-	// non-darwin GOOS to guarantee the TTY branch regardless of the host's
-	// actual osascript availability.
-	withSeams(t, "not-darwin", failOsascript(t), func(string) (string, error) { return "yes", nil })
+	withSeams(t, "darwin", failOsascript(t), func(string) (string, error) { return "yes", nil })
+	HasOsascript = func() bool { return false }
 	if err := Confirm("proceed?"); err != nil {
 		t.Fatalf("want nil, got %v", err)
 	}
