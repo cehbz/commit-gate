@@ -3,6 +3,11 @@
 // contract = reference files bin/approve-push, bin/gate-enable,
 // bin/gate-disable, bin/gate-status, bin/clear-approvals (sourcing
 // lib/common's require_enabled/confirm/die/gate_dir/is_enabled/is_disabled).
+//
+// approve-push and gate-disable are human-only, run by pasting a `!`
+// command an agent composed; like approve, they run launchguard.Check
+// first and refuse if their launch command contains anything besides cd
+// and commit-gate's own commands. See package launchguard.
 package main
 
 import (
@@ -23,6 +28,9 @@ func hasYes(args []string) bool {
 // cmdApprovePush implements the `approve-push` command: require_enabled;
 // confirm unless --yes; write a push token; report success.
 func cmdApprovePush(args []string) int {
+	if code := checkLaunchGuard("approve-push"); code != 0 {
+		return code
+	}
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
 	if err != nil {
@@ -83,6 +91,9 @@ func cmdGateEnable(_ []string) int {
 // cmdGateDisable implements the `gate-disable` command: confirm unless
 // --yes, then opt the repo out via commit-gate.disabled.
 func cmdGateDisable(args []string) int {
+	if code := checkLaunchGuard("gate-disable"); code != 0 {
+		return code
+	}
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
 	if err != nil {

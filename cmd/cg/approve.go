@@ -1,6 +1,13 @@
 // approve.go implements the `approve` command: human approval of one or
 // more pending commit messages. Behavioral contract = reference file
 // bin/approve (sourcing lib/common's require_enabled/confirm/die).
+//
+// approve is human-only, run by pasting a `!` command an agent composed
+// (see policy.MsgHumanOnly / policy.MsgReminder). Before doing anything
+// else it runs launchguard.Check: if the shell command it was launched
+// from contains anything besides cd and commit-gate's own commands (e.g.
+// `approve && ./install.sh`), it refuses rather than let the rest of that
+// pasted chain run unreviewed. See package launchguard.
 package main
 
 import (
@@ -13,6 +20,7 @@ import (
 
 	"github.com/cehbz/commit-gate/confirm"
 	"github.com/cehbz/commit-gate/gatestate"
+	"github.com/cehbz/commit-gate/launchguard"
 )
 
 // approveSep is the literal line that separates messages in a -F batch file.
@@ -27,8 +35,33 @@ func dieApprove(format string, a ...any) int {
 	return 1
 }
 
+// checkLaunchGuard is the shared entry point for approve, approve-push and
+// gate-disable: these are human-only commands the user runs by pasting a
+// `!` command an agent composed. A pasted chain that also runs other
+// things (`approve && ./install.sh && approve-push`) would get those other
+// things run without individual review. checkLaunchGuard refuses to let
+// cmdName proceed when the command it was launched from contains anything
+// other than cd and commit-gate's own commands, before any confirmation
+// dialog or state change. It returns 0 to continue, or the exit code to
+// return immediately.
+func checkLaunchGuard(cmdName string) int {
+	r := launchguard.Check(cmdName)
+	if r.Note != "" {
+		fmt.Fprintln(os.Stderr, r.Note)
+	}
+	if !r.Allow {
+		fmt.Fprintln(os.Stderr, r.Reason)
+		return 1
+	}
+	return 0
+}
+
 // cmdApprove implements the `approve` command.
 func cmdApprove(args []string) int {
+	if code := checkLaunchGuard("approve"); code != 0 {
+		return code
+	}
+
 	mode := "stdin"
 	src := ""
 	assumeYes := false
