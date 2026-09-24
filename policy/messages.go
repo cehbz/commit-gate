@@ -13,5 +13,5 @@ const (
 	MsgEditConfig   = `commit-gate: the agent may not edit .git/config.`
 	MsgEditSettings = `commit-gate: the agent may not edit settings.json.`
 	MsgEnvConfig    = `commit-gate: git config injection via GIT_CONFIG_* environment is not allowed for the agent.`
-	MsgReminder     = "commit-gate is enabled in this repo. Protocol (~/.claude/knowledge/projects/commit-gate.md): do NOT pre-ask. Write the message to a short /tmp path (e.g. /tmp/cgmsg), run `git commit -F <path>` (or push); if rejected it stages cg-pending — THEN show the message in chat and ask the user to run the bare `approve` (or `approve-push`) command. Batch plans: one `approve -F <file>` up front, messages separated by @@COMMIT-GATE-SEP@@."
+	MsgReminder     = "commit-gate is enabled in this repo. Workflow: ~/.claude/CLAUDE.md, \"Commits, pushes and publishing\". Commit first (`git commit -F /tmp/cgmsg`, no pre-ask); a rejection stages cg-pending: then show the message in chat and hand the user a paste-ready `! approve` (or `! approve-push`). Everything pending goes in one `/tmp/cg-batch` for `! approve -F /tmp/cg-batch`, messages separated by @@COMMIT-GATE-SEP@@."
 )
