@@ -85,3 +85,57 @@ func TestHeadMessage(t *testing.T) {
 		t.Fatalf("head message: %q %v", msg, ok)
 	}
 }
+
+func TestEnable(t *testing.T) {
+	d := mkrepo(t)
+	hooks := t.TempDir()
+	r, _ := Open(d)
+	r.GitConfigSet("commit-gate.disabled", "true")
+	if err := r.Enable(hooks); err != nil {
+		t.Fatalf("Enable: %v", err)
+	}
+	if s := r.State(hooks); s != StateEnabled {
+		t.Fatalf("after Enable: %v", s)
+	}
+	if info, err := os.Stat(r.GateDir()); err != nil || !info.IsDir() {
+		t.Fatalf("gate dir must exist: %v", err)
+	}
+	if err := os.WriteFile(r.ManifestPath(), []byte("abc  feat: keep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Enable(hooks); err != nil {
+		t.Fatalf("re-Enable: %v", err)
+	}
+	if b, _ := os.ReadFile(r.ManifestPath()); string(b) != "abc  feat: keep\n" {
+		t.Fatalf("re-Enable must keep the manifest, got %q", b)
+	}
+}
+
+func TestEnableFailures(t *testing.T) {
+	d := mkrepo(t)
+	r, _ := Open(d)
+	if err := r.Enable(""); err == nil {
+		t.Fatal("empty hooks dir must error")
+	}
+	if s := r.State(""); s != StateUndecided {
+		t.Fatalf("failed Enable must leave the repo undecided: %v", s)
+	}
+	if err := os.WriteFile(r.GateDir(), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Enable(t.TempDir()); err == nil {
+		t.Fatal("gate dir blocked by a file must error")
+	}
+}
+
+func TestHooksPath(t *testing.T) {
+	d := mkrepo(t)
+	r, _ := Open(d)
+	if hp := r.HooksPath(); hp != "" {
+		t.Fatalf("fresh repo: HooksPath = %q", hp)
+	}
+	r.GitConfigSet("core.hooksPath", ".husky/_")
+	if hp := r.HooksPath(); hp != ".husky/_" {
+		t.Fatalf("HooksPath = %q, want the raw configured value", hp)
+	}
+}

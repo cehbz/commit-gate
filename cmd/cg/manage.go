@@ -57,29 +57,17 @@ func cmdApprovePush(args []string) int {
 	return 0
 }
 
-// cmdGateEnable implements the `gate-enable` command: point core.hooksPath
-// at the live hooks dir, clear any opt-out, and ensure the gate dir and
-// manifest exist.
+// cmdGateEnable implements the `gate-enable` command: Repo.Enable with the
+// live hooks dir.
 func cmdGateEnable(_ []string) int {
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
 	if err != nil {
 		return dieApprove("not inside a git repository")
 	}
-	if err := repo.GitConfigSet("core.hooksPath", liveHooksDir()); err != nil {
+	if err := repo.Enable(liveHooksDir()); err != nil {
 		return dieApprove("%s", err)
 	}
-	if err := repo.GitConfigUnset("commit-gate.disabled"); err != nil {
-		return dieApprove("%s", err)
-	}
-	if err := os.MkdirAll(repo.GateDir(), 0o755); err != nil {
-		return dieApprove("%s", err)
-	}
-	f, err := os.OpenFile(repo.ManifestPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return dieApprove("%s", err)
-	}
-	f.Close()
 	top, err := repo.Toplevel()
 	if err != nil {
 		return dieApprove("%s", err)
@@ -148,7 +136,11 @@ func cmdGateStatus(_ []string) int {
 		}
 		return 0
 	}
-	fmt.Println("commit-gate: undecided (run gate-enable to gate this repo, or gate-disable to opt out)")
+	if hp := repo.HooksPath(); hp != "" {
+		fmt.Printf("commit-gate: undecided (core.hooksPath is %s, so not gated automatically; gate-enable replaces it, gate-disable opts out)\n", hp)
+		return 0
+	}
+	fmt.Println("commit-gate: undecided (gated at the next Claude Code session start unless opted out: gate-disable)")
 	return 0
 }
 

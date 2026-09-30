@@ -108,6 +108,12 @@ func cmdPrecheck() (code int) {
 	return 0
 }
 
+// cmdSessioncheck is the SessionStart hook: an undecided repo (neither
+// enabled nor opted out) with no core.hooksPath is enabled; one whose
+// core.hooksPath belongs to another hook manager is left untouched. Either
+// way the user (systemMessage) and the model (additionalContext) are told,
+// including when enabling fails. Enabled, opted-out and non-repo
+// directories stay silent.
 func cmdSessioncheck() int {
 	in, err := harness.ParseInput(os.Stdin)
 	if err != nil {
@@ -128,7 +134,20 @@ func cmdSessioncheck() int {
 	if terr != nil {
 		top = cwd
 	}
-	ctx := "commit-gate is not configured in this repository (" + top + "). Offer the user a choice: run `gate-enable` to gate commits/pushes here, or `gate-disable` to opt out permanently. Do NOT enable without the user's explicit yes."
-	os.Stdout.Write(harness.SessionContext(ctx))
+	if hp := repo.HooksPath(); hp != "" {
+		os.Stdout.Write(harness.SessionNotice(
+			"commit-gate was not enabled in this repository ("+top+"): another hook manager owns core.hooksPath ("+hp+"), so commits and pushes here are ungated. Whether to gate it is the user's choice: they were told `gate-enable` gates it (replacing that hooksPath) and `gate-disable` opts out. Do not run `gate-enable` without their explicit yes.",
+			"commit-gate: not enabled in "+top+": core.hooksPath is "+hp+". To gate it anyway: gate-enable (replaces that hooksPath). To opt out: gate-disable"))
+		return 0
+	}
+	if err := repo.Enable(liveHooksDir()); err != nil {
+		os.Stdout.Write(harness.SessionNotice(
+			"commit-gate could not be enabled in this repository ("+top+"): "+err.Error()+". A missing gate means commits are denied: do not commit or push here. The user was shown this failure and can run `gate-enable` to retry or `gate-disable` to opt out.",
+			"commit-gate: could not enable in "+top+": "+err.Error()+". Commits here are denied until fixed: run gate-enable to retry, or gate-disable to opt out."))
+		return 0
+	}
+	os.Stdout.Write(harness.SessionNotice(
+		"commit-gate was enabled by default in this repository ("+top+"): commits and pushes here now need the user's recorded approval (workflow: ~/.claude/CLAUDE.md, \"Commits, pushes and publishing\"). The user was told they can opt out by running `gate-disable`.",
+		"commit-gate: enabled in "+top+" (default). To opt out: gate-disable"))
 	return 0
 }

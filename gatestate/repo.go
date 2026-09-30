@@ -4,6 +4,7 @@ package gatestate
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -113,4 +114,33 @@ func (r *Repo) GitConfigUnset(key string) error {
 		return err
 	}
 	return nil
+}
+
+// Enable gates the repo: core.hooksPath points at hooksDir, any opt-out is
+// cleared, and the gate dir and manifest exist (an existing manifest is kept).
+func (r *Repo) Enable(hooksDir string) error {
+	if hooksDir == "" {
+		return fmt.Errorf("live hooks dir unknown")
+	}
+	if err := r.GitConfigSet("core.hooksPath", hooksDir); err != nil {
+		return err
+	}
+	if err := r.GitConfigUnset("commit-gate.disabled"); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(r.GateDir(), 0o755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(r.ManifestPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+// HooksPath is the configured core.hooksPath as git reports it (any scope),
+// or "" when unset.
+func (r *Repo) HooksPath() string {
+	hp, _ := git(r.Dir, "config", "--get", "core.hooksPath")
+	return hp
 }

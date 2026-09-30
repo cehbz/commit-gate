@@ -30,6 +30,14 @@ func TestSessionContextShape(t *testing.T) {
 	}
 }
 
+func TestSessionNoticeShape(t *testing.T) {
+	got := SessionNotice("c", `u "q" && <x>`)
+	want := `{"systemMessage":"u \"q\" && <x>","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"c"}}` + "\n"
+	if string(got) != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func TestParseInput(t *testing.T) {
 	in := `{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/x"}`
 	got, err := ParseInput(strings.NewReader(in))

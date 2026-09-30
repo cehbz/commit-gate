@@ -51,7 +51,8 @@ type sessionOut struct {
 }
 
 type envelope struct {
-	HookSpecificOutput any `json:"hookSpecificOutput"`
+	SystemMessage      string `json:"systemMessage,omitempty"`
+	HookSpecificOutput any    `json:"hookSpecificOutput"`
 }
 
 // marshal emits compact one-line JSON with a trailing newline and NO HTML
@@ -68,13 +69,18 @@ func marshal(e envelope) []byte {
 }
 
 func Deny(reason string) []byte {
-	return marshal(envelope{denyOut{HookEventName: "PreToolUse", PermissionDecision: "deny", PermissionDecisionReason: reason}})
+	return marshal(envelope{HookSpecificOutput: denyOut{HookEventName: "PreToolUse", PermissionDecision: "deny", PermissionDecisionReason: reason}})
 }
 
 func AllowContext(ctx string) []byte {
-	return marshal(envelope{allowOut{HookEventName: "PreToolUse", PermissionDecision: "allow", AdditionalContext: ctx}})
+	return marshal(envelope{HookSpecificOutput: allowOut{HookEventName: "PreToolUse", PermissionDecision: "allow", AdditionalContext: ctx}})
 }
 
 func SessionContext(ctx string) []byte {
-	return marshal(envelope{sessionOut{HookEventName: "SessionStart", AdditionalContext: ctx}})
+	return marshal(envelope{HookSpecificOutput: sessionOut{HookEventName: "SessionStart", AdditionalContext: ctx}})
+}
+
+// SessionNotice is SessionContext plus a systemMessage shown to the user.
+func SessionNotice(ctx, userMsg string) []byte {
+	return marshal(envelope{SystemMessage: userMsg, HookSpecificOutput: sessionOut{HookEventName: "SessionStart", AdditionalContext: ctx}})
 }

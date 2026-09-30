@@ -153,7 +153,20 @@ func TestGateStatusUndecided(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("gate-status failed: code=%d stderr=%q", code, errStr)
 	}
-	want := "commit-gate: undecided (run gate-enable to gate this repo, or gate-disable to opt out)\n"
+	want := "commit-gate: undecided (gated at the next Claude Code session start unless opted out: gate-disable)\n"
+	if out != want {
+		t.Fatalf("stdout mismatch:\ngot:  %q\nwant: %q", out, want)
+	}
+}
+
+func TestGateStatusUndecidedForeignHooksPath(t *testing.T) {
+	repo := mkrepoT(t)
+	gitSetConfig(t, repo, "core.hooksPath", ".husky/_")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	if code != 0 {
+		t.Fatalf("gate-status failed: code=%d stderr=%q", code, errStr)
+	}
+	want := "commit-gate: undecided (core.hooksPath is .husky/_, so not gated automatically; gate-enable replaces it, gate-disable opts out)\n"
 	if out != want {
 		t.Fatalf("stdout mismatch:\ngot:  %q\nwant: %q", out, want)
 	}
