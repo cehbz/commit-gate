@@ -136,10 +136,6 @@ func cmdGateStatus(_ []string) int {
 		}
 		return 0
 	}
-	if hp := repo.HooksPath(); hp != "" {
-		fmt.Printf("commit-gate: undecided (core.hooksPath is %s, so not gated automatically; gate-enable replaces it, gate-disable opts out)\n", hp)
-		return 0
-	}
 	fmt.Println("commit-gate: undecided (gated at the next Claude Code session start unless opted out: gate-disable)")
 	return 0
 }

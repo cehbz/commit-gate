@@ -127,15 +127,3 @@ func TestEnableFailures(t *testing.T) {
 		t.Fatal("gate dir blocked by a file must error")
 	}
 }
-
-func TestHooksPath(t *testing.T) {
-	d := mkrepo(t)
-	r, _ := Open(d)
-	if hp := r.HooksPath(); hp != "" {
-		t.Fatalf("fresh repo: HooksPath = %q", hp)
-	}
-	r.GitConfigSet("core.hooksPath", ".husky/_")
-	if hp := r.HooksPath(); hp != ".husky/_" {
-		t.Fatalf("HooksPath = %q, want the raw configured value", hp)
-	}
-}

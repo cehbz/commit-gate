@@ -180,30 +180,3 @@ func TestSessioncheckNonRepoSilent(t *testing.T) {
 		t.Fatalf("non-repo must be silent: %q", out)
 	}
 }
-
-func TestSessioncheckSkipsForeignHooksPath(t *testing.T) {
-	repo := mkrepoT(t)
-	top := showToplevel(t, repo)
-	gitSetConfig(t, repo, "core.hooksPath", ".husky/_")
-	_, so := runSessioncheck(t, repo)
-	want := "commit-gate: not enabled in " + top + ": core.hooksPath is .husky/_. To gate it anyway: gate-enable (replaces that hooksPath). To opt out: gate-disable"
-	if so.SystemMessage != want {
-		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
-	}
-	ctx := so.HookSpecificOutput.AdditionalContext
-	for _, s := range []string{"not enabled", ".husky/_", "ungated", "gate-enable", "explicit yes"} {
-		if !strings.Contains(ctx, s) {
-			t.Fatalf("additionalContext lacks %q: %q", s, ctx)
-		}
-	}
-	if hp := gitGetConfig(t, repo, "core.hooksPath"); hp != ".husky/_" {
-		t.Fatalf("foreign core.hooksPath must stay untouched, got %q", hp)
-	}
-	r, err := gatestate.Open(repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(r.GateDir()); !os.IsNotExist(err) {
-		t.Fatalf("gate dir must not be created: %v", err)
-	}
-}

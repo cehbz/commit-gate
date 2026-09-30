@@ -137,10 +137,3 @@ func (r *Repo) Enable(hooksDir string) error {
 	}
 	return f.Close()
 }
-
-// HooksPath is the configured core.hooksPath as git reports it (any scope),
-// or "" when unset.
-func (r *Repo) HooksPath() string {
-	hp, _ := git(r.Dir, "config", "--get", "core.hooksPath")
-	return hp
-}
