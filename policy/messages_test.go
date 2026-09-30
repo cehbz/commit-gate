@@ -14,8 +14,17 @@ func TestReminderPointsAtTheAlwaysLoadedWorkflow(t *testing.T) {
 	}
 }
 
-func TestReminderNamesThePerRepoBatchFile(t *testing.T) {
-	if !strings.Contains(MsgReminder, "/tmp/cg-batch-<repo>") {
-		t.Errorf("reminder should name the per-repo batch file /tmp/cg-batch-<repo>: %q", MsgReminder)
+func TestReminderNamesThePerSessionBatchFile(t *testing.T) {
+	for _, want := range []string{"/tmp/cg-batch-<repo>-<sid>", "$CLAUDE_CODE_SESSION_ID", "approve -F"} {
+		if !strings.Contains(MsgReminder, want) {
+			t.Errorf("reminder should name %q: %q", want, MsgReminder)
+		}
+	}
+	// Shared across sessions: /tmp/cgmsg by every session, cg-pending (read by
+	// bare approve) by every session in the repo.
+	for _, stale := range []string{"/tmp/cgmsg", "`! approve`"} {
+		if strings.Contains(MsgReminder, stale) {
+			t.Errorf("reminder still names the shared %q: %q", stale, MsgReminder)
+		}
 	}
 }
