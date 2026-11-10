@@ -22,6 +22,9 @@ Closing any of these means expanding the threat model from rationalization to sa
 ## Ergonomics
 - `approve --plan` extracts only single-line `-m "…"` payloads; multi-line / trailer
   messages need `-F` with the `@@COMMIT-GATE-SEP@@` separator.
+- `install.sh` builds `$SCRIPT_DIR/cmd/cg` from the caller's working directory, so when
+  claude-knowledge's `install.sh` calls it the build fails with `go: cannot find main
+  module`; it needs a `cd "$SCRIPT_DIR"` first.
 
 ## Harness (not gate code)
 - Pasting `!` commands is unreliable — often needs hand-editing before it runs, and appears
