@@ -15,7 +15,9 @@ command -v go >/dev/null 2>&1 || { echo "commit-gate: Go is required to build" >
 mkdir -p "$LIBEXEC/hooks" "$BIN_DIR" "$CLAUDE_DIR"
 
 # Single binary; every entry point is a symlink dispatched on argv[0] basename.
-go build -o "$BIN" "$SCRIPT_DIR/cmd/cg"
+# Go resolves the module from the working directory, not from the package path.
+cd "$SCRIPT_DIR"
+go build -o "$BIN" ./cmd/cg
 echo "Built: $BIN"
 
 ln -sf ../commit-gate "$LIBEXEC/hooks/commit-msg"
