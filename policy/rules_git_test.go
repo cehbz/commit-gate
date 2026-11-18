@@ -34,7 +34,8 @@ func TestR3HooksPath(t *testing.T) {
 	wantDeny(t, "git config --unset core.hooksPath", MsgHooksPath)
 	wantDeny(t, "git config core.hooksPath $DIR", MsgHooksPath) // unresolvable value in guarded position
 	wantDeny(t, "git -c core.hooksPath=/tmp/evil commit -F /tmp/m", MsgHooksPath)
-	wantSilent(t, "git config core.hooksPath /inst/hooks") // enable
+	wantDeny(t, "git -c core.hooksPath=/dev/null commit -m x", MsgHooksPath) // a machine committer's bypass, denied to the agent
+	wantSilent(t, "git config core.hooksPath /inst/hooks")                   // enable
 	wantSilent(t, "git -c core.hooksPath=/inst/hooks commit -F /tmp/m")
 	wantSilent(t, "git config --get core.hooksPath") // reads allowed (behavior change)
 }

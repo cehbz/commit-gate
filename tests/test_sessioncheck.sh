@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
 SC="$DIR/../sessioncheck"; BIN="$DIR/../bin"; hooks="$(cd "$DIR/../hooks" && pwd -P)"
 enables() { out="$(printf '{"cwd":"%s"}' "$1" | "$SC")"; printf '%s' "$out" | grep -q '"systemMessage":"commit-gate: enabled in ' &&
   printf '%s' "$out" | grep -q additionalContext && [ "$(cd "$(git -C "$1" config --get core.hooksPath)" && pwd -P)" = "$hooks" ]; }

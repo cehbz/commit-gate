@@ -12,12 +12,18 @@ deliberate indirection (sabotage), outside the rationalization threat model:
 - Combined short flags: `bash -lc '…'` is not recognized as a `-c` payload.
 - Whole-`.git` destruction: `rm -rf .git` is not blocked — it destroys history, so it is
   sabotage rather than a way to sneak a commit past the gate.
+- A `squash` in an interactive rebase lands a combined message with no commit-msg run: a
+  deliberate interactive rebase.
+- Replays run no commit-msg (git 2.39.5, 2.47.3, 2.54.0): a rebase's picks under both
+  backends, `rebase --continue`, a clean cherry-pick, and a pull with `pull.rebase` and
+  `rebase.autoStash`, which every host sets. commit-msg runs for a plain commit, a
+  non-fast-forward merge and a `reword`; on 2.54.0 also for `cherry-pick --continue` after a
+  conflict and for a conflicted merge finished with `git commit`.
 Closing any of these means expanding the threat model from rationalization to sabotage.
 
 ## Verify empirically (against the running harness)
 - Harness behavior when the PreToolUse command is missing or crashes: does the harness fail
   closed? The binary recovers-to-deny, but that only covers the case where it actually runs.
-- commit-msg under `rebase` / `cherry-pick` (merge and amend are covered).
 
 ## Ergonomics
 - `approve --plan` extracts only single-line `-m "…"` payloads; multi-line / trailer

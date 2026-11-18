@@ -148,8 +148,11 @@ func cmdClearApprovals(_ []string) int {
 	if err != nil {
 		return dieApprove("not inside a git repository")
 	}
-	if info, err := os.Stat(repo.GateDir()); err != nil || !info.IsDir() {
+	if !repo.Enabled(liveHooksDir()) {
 		return dieApprove("repo not enabled")
+	}
+	if err := os.MkdirAll(repo.GateDir(), 0o755); err != nil {
+		return dieApprove("%s", err)
 	}
 	if err := os.WriteFile(repo.ManifestPath(), []byte{}, 0o644); err != nil {
 		return dieApprove("%s", err)

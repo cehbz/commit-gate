@@ -177,6 +177,7 @@ func TestApprovePushTokenInvalidated(t *testing.T) {
 // (g) an ungated repo (no core.hooksPath set) dies with the exact
 // "repo not enabled" message, exit 1.
 func TestApproveUngatedRepoDies(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 
 	_, errStr, code := runIn(t, repo, "feat: x", "commit-gate", "approve", "--yes")

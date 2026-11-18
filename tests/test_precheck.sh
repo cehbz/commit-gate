@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
 PC="$DIR/../precheck"; GH="$(cd "$DIR/../hooks" && pwd)"; BIN="$DIR/../bin"
 
 run() {  # $1=command, $2=cwd (optional)

@@ -35,6 +35,16 @@ func TestMain(m *testing.M) {
 	os.Symlink(bin, filepath.Join(dir, "hooks", "commit-msg"))
 	os.Symlink(bin, filepath.Join(dir, "hooks", "pre-push"))
 	binDir = dir
+	// Every git the suite runs, and every git the gate binary runs, reads this
+	// global config instead of the user's: core.hooksPath names the gate under
+	// test, as install.sh makes the user's ~/.gitconfig do.
+	globalCfg := filepath.Join(dir, "gitconfig")
+	if err := os.WriteFile(globalCfg, []byte("[core]\n\thooksPath = "+filepath.Join(dir, "hooks")+"\n"), 0o644); err != nil {
+		os.RemoveAll(dir)
+		panic(err)
+	}
+	os.Setenv("GIT_CONFIG_GLOBAL", globalCfg)
+	os.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	// os.Exit does not run deferred funcs; remove the temp tree explicitly.
 	code := m.Run()
 	os.RemoveAll(dir)
@@ -112,6 +122,7 @@ func runSessioncheck(t *testing.T, dir string) (string, sessionOut) {
 }
 
 func TestSessioncheckEnablesUndecidedRepo(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	_, so := runSessioncheck(t, repo)
@@ -142,6 +153,7 @@ func TestSessioncheckEnablesUndecidedRepo(t *testing.T) {
 }
 
 func TestSessioncheckLeavesOptedOutRepo(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "commit-gate.disabled", "true")
 	if out, _ := runSessioncheck(t, repo); out != "" {
@@ -156,6 +168,7 @@ func TestSessioncheckLeavesOptedOutRepo(t *testing.T) {
 }
 
 func TestSessioncheckReportsEnableFailure(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	r, err := gatestate.Open(repo)
@@ -179,4 +192,15 @@ func TestSessioncheckNonRepoSilent(t *testing.T) {
 	if out, _ := runSessioncheck(t, t.TempDir()); out != "" {
 		t.Fatalf("non-repo must be silent: %q", out)
 	}
+}
+
+// noGlobalGate runs the test on a host whose global git config names no
+// core.hooksPath.
+func noGlobalGate(t *testing.T) {
+	t.Helper()
+	empty := filepath.Join(t.TempDir(), "gitconfig")
+	if err := os.WriteFile(empty, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", empty)
 }

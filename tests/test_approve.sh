@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
 BIN="$DIR/../bin"; CANON="$DIR/../lib/canonical"
 
 repo="$(mkrepo)"; cd "$repo"; "$BIN/gate-enable" >/dev/null

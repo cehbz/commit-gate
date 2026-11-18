@@ -148,6 +148,7 @@ func TestGateDisableNonRepoDies(t *testing.T) {
 // --- gate-status ---
 
 func TestGateStatusUndecided(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
 	if code != 0 {
@@ -263,6 +264,7 @@ func TestClearApprovalsHappyPath(t *testing.T) {
 }
 
 func TestClearApprovalsNotEnabledDies(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 	_, errStr, code := runIn(t, repo, "", "commit-gate", "clear-approvals")
 	if code != 1 {
@@ -312,6 +314,7 @@ func TestApprovePushHappyPath(t *testing.T) {
 }
 
 func TestApprovePushNotEnabledDies(t *testing.T) {
+	noGlobalGate(t)
 	repo := mkrepoT(t)
 	_, errStr, code := runIn(t, repo, "", "commit-gate", "approve-push", "--yes")
 	if code != 1 {
