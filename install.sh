@@ -20,8 +20,10 @@ cd "$SCRIPT_DIR"
 go build -o "$BIN" ./cmd/cg
 echo "Built: $BIN"
 
-ln -sf ../commit-gate "$LIBEXEC/hooks/commit-msg"
-ln -sf ../commit-gate "$LIBEXEC/hooks/pre-push"
+# commit-msg and pre-push enforce; every other hook git runs passes through
+# to the repo's own .git/hooks/<name>, so a global core.hooksPath naming this
+# directory silences no repo's hooks.
+for h in $("$BIN" hook-names); do ln -sf ../commit-gate "$LIBEXEC/hooks/$h"; done
 ln -sf commit-gate "$LIBEXEC/precheck"
 ln -sf commit-gate "$LIBEXEC/sessioncheck"
 

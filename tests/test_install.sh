@@ -10,5 +10,9 @@ elsewhere="$(mkrepo)"
   || fail "install.sh from another repo's directory: $(cat "$tmp/out")"
 [ -x "$tmp/libexec/commit-gate" ] || fail "no binary built"
 [ -L "$tmp/bin/approve" ] || fail "approve not linked"
+for h in $("$tmp/libexec/commit-gate" hook-names); do
+  [ -L "$tmp/libexec/hooks/$h" ] || fail "hook $h not linked"
+done
+[ -L "$tmp/libexec/hooks/pre-commit" ] || fail 'pre-commit pass-through not linked'
 rm -rf "$elsewhere"
 echo "OK: test_install"

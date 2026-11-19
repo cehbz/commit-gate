@@ -11,8 +11,7 @@ build:
 	@ln -sf ../commit-gate $(BUILD)/bin/gate-disable
 	@ln -sf ../commit-gate $(BUILD)/bin/gate-enable
 	@ln -sf ../commit-gate $(BUILD)/bin/gate-status
-	@ln -sf ../commit-gate $(BUILD)/hooks/commit-msg
-	@ln -sf ../commit-gate $(BUILD)/hooks/pre-push
+	@for h in $$($(BUILD)/commit-gate hook-names); do ln -sf ../commit-gate $(BUILD)/hooks/$$h; done
 	@ln -sf ../commit-gate $(BUILD)/lib/canonical
 	@ln -sf commit-gate $(BUILD)/precheck
 	@ln -sf commit-gate $(BUILD)/sessioncheck

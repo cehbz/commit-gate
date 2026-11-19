@@ -32,8 +32,14 @@ func TestMain(m *testing.M) {
 	for _, l := range []string{"precheck", "sessioncheck"} {
 		os.Symlink(bin, filepath.Join(dir, l))
 	}
-	os.Symlink(bin, filepath.Join(dir, "hooks", "commit-msg"))
-	os.Symlink(bin, filepath.Join(dir, "hooks", "pre-push"))
+	names, err := exec.Command(bin, "hook-names").Output()
+	if err != nil {
+		os.RemoveAll(dir)
+		panic(err)
+	}
+	for _, h := range strings.Fields(string(names)) {
+		os.Symlink(bin, filepath.Join(dir, "hooks", h))
+	}
 	binDir = dir
 	// Every git the suite runs, and every git the gate binary runs, reads this
 	// global config instead of the user's: core.hooksPath names the gate under

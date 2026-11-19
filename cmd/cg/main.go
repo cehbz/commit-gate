@@ -1,7 +1,9 @@
 // Command commit-gate is the single dispatch binary for the commit-gate tool.
 // It is invoked either as `commit-gate <subcommand> [args]` or, in symlink mode,
 // via a basename equal to one of the subcommand names (precheck, sessioncheck,
-// commit-msg, pre-push, ...). The source package lives at cmd/cg but the built
+// commit-msg, pre-push, ...). Its hooks/ directory holds every hook git runs:
+// commit-msg and pre-push enforce, and the rest pass through to the repo's own
+// .git/hooks/<name>. The source package lives at cmd/cg but the built
 // binary is always named "commit-gate"; dispatch reads filepath.Base(os.Args[0]),
 // never the source directory.
 package main
@@ -21,13 +23,13 @@ func dispatch(args []string) int {
 	rest := args[1:]
 	if name == "commit-gate" {
 		if len(rest) == 0 {
-			fmt.Fprintln(os.Stderr, "usage: commit-gate <precheck|sessioncheck|approve|approve-push|gate-enable|gate-disable|gate-status|clear-approvals|hook> ...")
+			fmt.Fprintln(os.Stderr, "usage: commit-gate <precheck|sessioncheck|approve|approve-push|gate-enable|gate-disable|gate-status|clear-approvals|hook-names|hook> ...")
 			return 2
 		}
 		name, rest = rest[0], rest[1:]
 		if name == "hook" {
 			if len(rest) == 0 {
-				fmt.Fprintln(os.Stderr, "usage: commit-gate hook <commit-msg|pre-push> ...")
+				fmt.Fprintln(os.Stderr, "usage: commit-gate hook <name> ...")
 				return 2
 			}
 			name, rest = rest[0], rest[1:]
@@ -56,7 +58,12 @@ func dispatch(args []string) int {
 		return cmdGateStatus(rest)
 	case "clear-approvals":
 		return cmdClearApprovals(rest)
+	case "hook-names":
+		return cmdHookNames()
 	default:
+		if isPassThrough(name) {
+			return cmdPassThrough(name, rest)
+		}
 		fmt.Fprintf(os.Stderr, "commit-gate: unknown command %q\n", name)
 		return 2
 	}

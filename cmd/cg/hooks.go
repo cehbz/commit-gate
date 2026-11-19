@@ -1,8 +1,10 @@
-// hooks.go implements the two native git hook subcommands: commit-msg and
+// hooks.go implements the two enforcing git hook subcommands: commit-msg and
 // pre-push. These are invoked by git itself (via core.hooksPath pointing at
-// this binary's hooks/ directory), not by the Claude Code harness. Behavior
-// is a direct transcription of hooks/commit-msg and hooks/pre-push (see
-// lib/common for chain_local/gate_dir/is_disabled).
+// this binary's hooks/ directory), not by the Claude Code harness. That
+// directory holds every hook git runs: these two enforce, and the rest pass
+// through to the repo's own (passthrough.go). Behavior is a direct
+// transcription of hooks/commit-msg and hooks/pre-push (see lib/common for
+// chain_local/gate_dir/is_disabled).
 package main
 
 import (
@@ -10,20 +12,32 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 
 	"github.com/cehbz/commit-gate/gatestate"
 )
+
+// localHook returns the repo's own executable hook <repo.Common>/hooks/<name>,
+// the native location, whatever core.hooksPath names.
+func localHook(repo *gatestate.Repo, name string) (string, bool) {
+	path := filepath.Join(repo.Common, "hooks", name)
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+		return "", false
+	}
+	return path, true
+}
 
 // chainLocal runs the repo-local hook <repo.Common>/hooks/<name> — the
 // NATIVE git hook location, independent of whatever core.hooksPath is
 // configured to — if it exists and is executable, passing args and
 // inheriting stdio, with Dir set to the repo's working directory. It
 // returns -1 to mean "continue" (no local hook present, or the local hook
-// ran and exited 0), or the child's exit code to propagate immediately.
+// ran and exited 0), or the child's exit code to propagate immediately: a
+// hook killed by a signal is 128+signal, as the shell reports it.
 func chainLocal(repo *gatestate.Repo, name string, args []string) int {
-	path := filepath.Join(repo.Common, "hooks", name)
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+	path, ok := localHook(repo, name)
+	if !ok {
 		return -1
 	}
 	cmd := exec.Command(path, args...)
@@ -33,6 +47,9 @@ func chainLocal(repo *gatestate.Repo, name string, args []string) int {
 	cmd.Dir = repo.Dir
 	if err := cmd.Run(); err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
+			if ws, ok := ee.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+				return 128 + int(ws.Signal())
+			}
 			return ee.ExitCode()
 		}
 		return 1 // couldn't even run it; fail closed like the bash `|| exit $?`
