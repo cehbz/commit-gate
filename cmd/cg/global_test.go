@@ -172,17 +172,6 @@ func TestGateEnableReadsAnIncludedGlobalHooksPath(t *testing.T) {
 	}
 }
 
-func TestClearLocalHookspathReadsAnIncludedGlobalHooksPath(t *testing.T) {
-	globalHooksPathViaInclude(t, liveHooks(t))
-	root := t.TempDir()
-	repo := mkrepoAt(t, filepath.Join(root, "r"))
-	gitSetConfig(t, repo, "core.hooksPath", liveHooks(t))
-	out, errStr, code := run(t, "", "commit-gate", "clear-local-hookspath", root)
-	if code != 0 || !strings.HasSuffix(out, "commit-gate: 1 removed, 0 foreign\n") {
-		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
-	}
-}
-
 // globalHooksPathViaIncludeIf runs the test with a global git config that
 // sets core.hooksPath to dir only in repo, through an includeIf "gitdir:".
 func globalHooksPathViaIncludeIf(t *testing.T, repo, dir string) {
@@ -229,46 +218,8 @@ func TestGateStatusReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
 	}
 }
 
-// clear-local-hookspath removes a repo's gate path only where the global
-// core.hooksPath gates that repo, and counts the others as errors.
-func TestClearLocalHookspathReadsTheGlobalHooksPathPerRepo(t *testing.T) {
-	root := t.TempDir()
-	gated := mkrepoAt(t, filepath.Join(root, "a"))
-	other := mkrepoAt(t, filepath.Join(root, "b"))
-	globalHooksPathViaIncludeIf(t, gated, liveHooks(t))
-	for _, r := range []string{gated, other} {
-		gitSetConfig(t, r, "core.hooksPath", liveHooks(t))
-	}
-	out, errStr, code := run(t, "", "commit-gate", "clear-local-hookspath", root)
-	want := "removed " + gated + ": core.hooksPath was " + liveHooks(t) + "\n" +
-		"commit-gate: 1 removed, 0 foreign, 1 error\n"
-	if code != 1 || out != want || !strings.Contains(errStr, other+": the global core.hooksPath is unset") {
-		t.Fatalf("code=%d stderr=%q\ngot:\n%s\nwant:\n%s", code, errStr, out, want)
-	}
-	if hp := localHooksPath(t, other); hp != liveHooks(t) {
-		t.Fatalf("a repo the global gate doesn't cover keeps its gate path: %q", hp)
-	}
-}
-
-// Where an includeIf sets a foreign global core.hooksPath for a repo, the
-// remedy names the file that sets it, which git config --global doesn't
-// write.
-func TestClearLocalHookspathNamesTheIncludedFileSettingAForeignValue(t *testing.T) {
-	root := t.TempDir()
-	repo := mkrepoAt(t, filepath.Join(root, "r"))
-	elsewhere := t.TempDir()
-	globalHooksPathViaIncludeIf(t, repo, elsewhere)
-	inc := filepath.Join(filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL")), "hooks.inc")
-	gitSetConfig(t, repo, "core.hooksPath", liveHooks(t))
-	_, errStr, code := run(t, "", "commit-gate", "clear-local-hookspath", root)
-	fix := "git config --file " + inc + " core.hooksPath " + liveHooks(t)
-	if code != 1 || !strings.Contains(errStr, fix) || strings.Contains(errStr, "git config --global") {
-		t.Fatalf("code=%d stderr=%q, want the fix %q", code, errStr, fix)
-	}
-}
-
-// sessioncheck and gate-enable name the same remedy clear-local-hookspath
-// does: the included file that sets a foreign global core.hooksPath.
+// sessioncheck, gate-enable and gate-status name the included file that
+// sets a foreign global core.hooksPath in their remedy.
 func TestTheGlobalGateRemedyNamesTheIncludedFileEverywhere(t *testing.T) {
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, t.TempDir())
