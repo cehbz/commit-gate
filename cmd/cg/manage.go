@@ -106,9 +106,9 @@ func cmdGateDisable(args []string) int {
 
 // cmdGateStatus implements the `gate-status` command: report the repo
 // opted-out, enabled (with pending approvals + push token state), overridden
-// by a core.hooksPath above the global one (naming it, and its scope when not
-// repo-local), or ungated (naming why); an unreadable core.hooksPath is an
-// error.
+// by a core.hooksPath above the global one (naming it, its scope when not
+// repo-local, and what gates the repo), or ungated (naming why); an
+// unreadable core.hooksPath is an error.
 func cmdGateStatus(_ []string) int {
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
@@ -124,22 +124,15 @@ func cmdGateStatus(_ []string) int {
 		if err != nil {
 			return dieApprove("cannot read core.hooksPath: %s", err)
 		}
-		if hp == "" {
-			hp = "empty"
-		}
-		if scope == "local" {
-			fmt.Printf("commit-gate: overridden (core.hooksPath is %s; gate-enable clears it, gate-disable opts out)\n", hp)
-		} else {
-			fmt.Printf("commit-gate: overridden (core.hooksPath is %s, from %s config)\n", hp, scope)
-		}
+		fmt.Println(describeOverride(hp, scope).status())
 	case gatestate.StateUngated:
 		hp, scope, ok, err := repo.HooksPath()
-		p := gatestate.GlobalGateProblem(hooks)
+		p := gatestate.GlobalGateProblem(repo.Dir, hooks)
 		switch {
 		case err != nil:
 			return dieApprove("cannot read core.hooksPath: %s", err)
 		case p != "":
-			fmt.Printf("commit-gate: ungated (%s; to gate every repo: git config --global core.hooksPath %s)\n", p, hooks)
+			fmt.Printf("commit-gate: ungated (%s; to gate every repo: %s)\n", p, gatestate.GlobalGateFix(repo.Dir, hooks))
 		case ok:
 			fmt.Printf("commit-gate: ungated (core.hooksPath is %s, from %s config)\n", hp, scope)
 		default:

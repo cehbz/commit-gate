@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -69,19 +70,43 @@ func (r *Repo) Disabled() bool {
 // empty, and the scope git read it from: local, worktree, global, system or
 // command. ok is false when no scope sets it; err reports a failed read.
 func (r *Repo) HooksPath() (path, scope string, ok bool, err error) {
-	out, err := git(r.Dir, "config", "--show-scope", "--type=path", "--get", "core.hooksPath")
+	path, scope, _, ok, err = readHooksPath(r.Dir)
+	return path, scope, ok, err
+}
+
+// readHooksPath is the one reader of core.hooksPath, so the effective and
+// the global values can't be read differently: run in dir, so an includeIf
+// "gitdir:" matches as it does for git there, with includes followed. opts
+// narrows it to one scope (--global); none reads the effective value. origin
+// is the file that sets it, "" when it isn't a file.
+func readHooksPath(dir string, opts ...string) (path, scope, origin string, ok bool, err error) {
+	return readHooksPathAs(dir, append(opts, "--includes")...)
+}
+
+// readHooksPathAs reads core.hooksPath with opts as given, --includes or
+// --no-includes among them.
+func readHooksPathAs(dir string, opts ...string) (path, scope, origin string, ok bool, err error) {
+	args := append(append([]string{"config"}, opts...), "--show-scope", "--show-origin", "--type=path", "--get", "core.hooksPath")
+	out, err := git(dir, args...)
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 1 {
-		return "", "", false, nil // git config --get: the key is not set
+		return "", "", "", false, nil // git config --get: the key is not set
 	}
 	if err != nil {
-		return "", "", false, err
+		return "", "", "", false, err
 	}
-	scope, path, found := strings.Cut(out, "\t")
-	if !found {
-		return "", "", false, fmt.Errorf("git config --show-scope: unexpected output %q", out)
+	scope, rest, found := strings.Cut(out, "\t")
+	from, path, found2 := strings.Cut(rest, "\t")
+	if !found || !found2 {
+		return "", "", "", false, fmt.Errorf("git config --show-scope --show-origin: unexpected output %q", out)
 	}
-	return path, scope, true, nil
+	if f, isFile := strings.CutPrefix(from, "file:"); isFile {
+		if uq, err := strconv.Unquote(f); err == nil {
+			f = uq // git quotes a path with special characters
+		}
+		origin = f
+	}
+	return path, scope, origin, true, nil
 }
 
 // aboveGlobal reports whether a core.hooksPath from scope overrides the
@@ -142,20 +167,26 @@ func (r *Repo) State(hooksDir string) State {
 	return StateUngated
 }
 
-// GlobalHooksPath returns the core.hooksPath in the user's global git
-// config (~/.gitconfig, or $GIT_CONFIG_GLOBAL), ~ expanded.
-func GlobalHooksPath() (string, bool) {
-	out, err := git("/", "config", "--global", "--type=path", "--get", "core.hooksPath")
-	if err != nil || out == "" {
+// GlobalHooksPath returns the core.hooksPath the user's global git config
+// (~/.gitconfig, or $GIT_CONFIG_GLOBAL) sets for git run in dir, ~
+// expanded: the files it includes are read, and an includeIf "gitdir:"
+// applies when dir is in a repo it matches. dir "" is read as "/", in no
+// repo.
+func GlobalHooksPath(dir string) (string, bool) {
+	if dir == "" {
+		dir = "/"
+	}
+	hp, _, _, ok, err := readHooksPath(dir, "--global")
+	if err != nil || !ok || hp == "" {
 		return "", false
 	}
-	return out, true
+	return hp, true
 }
 
-// GlobalGateProblem says why the global core.hooksPath doesn't name
-// hooksDir, or returns "" when it does.
-func GlobalGateProblem(hooksDir string) string {
-	hp, ok := GlobalHooksPath()
+// GlobalGateProblem says why the global core.hooksPath, as git run in dir
+// reads it, doesn't name hooksDir, or returns "" when it does.
+func GlobalGateProblem(dir, hooksDir string) string {
+	hp, ok := GlobalHooksPath(dir)
 	switch {
 	case !ok:
 		return "the global core.hooksPath is unset"
@@ -163,6 +194,44 @@ func GlobalGateProblem(hooksDir string) string {
 		return "the global core.hooksPath is " + hp + ", not the gate"
 	}
 	return ""
+}
+
+// GlobalGateFix is the one remedy for a global core.hooksPath that isn't
+// the gate, for every command that reports one: the command that makes the
+// value git reads in dir name hooksDir, its paths shell-quoted so it pastes.
+// It writes the file that sets the value, decided by origin alone, an
+// empty value included: an included file when an include or includeIf sets
+// it, which git config --global would not override, else the global config.
+func GlobalGateFix(dir, hooksDir string) string {
+	global := "git config --global core.hooksPath " + shellQuote(hooksDir)
+	if dir == "" {
+		dir = "/"
+	}
+	_, _, origin, ok, err := readHooksPath(dir, "--global")
+	if err != nil || !ok || origin == "" {
+		return global
+	}
+	if _, _, top, ok, err := readHooksPathAs(dir, "--global", "--no-includes"); err == nil && ok && top == origin {
+		return global // the global config itself sets it
+	}
+	return "git config --file " + shellQuote(origin) + " core.hooksPath " + shellQuote(hooksDir)
+}
+
+// shellQuote returns s as one shell word: as it is when it holds only
+// [A-Za-z0-9/._~+-], else single-quoted, a ' inside closed, escaped and
+// reopened.
+func shellQuote(s string) string {
+	plain := s != ""
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("/._~+-", c)) {
+			plain = false
+			break
+		}
+	}
+	if plain {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func (r *Repo) HeadMessage() (string, bool) {
@@ -202,8 +271,8 @@ func (r *Repo) Enable(hooksDir string) error {
 	if hooksDir == "" {
 		return fmt.Errorf("live hooks dir unknown")
 	}
-	if p := GlobalGateProblem(hooksDir); p != "" {
-		return fmt.Errorf("%s; to gate every repo: git config --global core.hooksPath %s", p, hooksDir)
+	if p := GlobalGateProblem(r.Dir, hooksDir); p != "" {
+		return fmt.Errorf("%s; to gate every repo: %s", p, GlobalGateFix(r.Dir, hooksDir))
 	}
 	if err := r.GitConfigUnset("core.hooksPath"); err != nil {
 		return err

@@ -142,18 +142,20 @@ func cmdSessioncheck() int {
 	}
 	hooks := liveHooksDir()
 	var ctx, user []string
-	if p := gatestate.GlobalGateProblem(hooks); p != "" {
-		ctx = append(ctx, "commit-gate does not gate every repository on this host: "+p+". A repository without its own gate setting is ungated, which counts as a missing gate: do not commit or push in it. The user was shown the fix: git config --global core.hooksPath "+hooks+".")
-		user = append(user, "commit-gate: "+p+", so repos here are ungated. To gate every repo: git config --global core.hooksPath "+hooks)
+	if p := gatestate.GlobalGateProblem(cwd, hooks); p != "" {
+		fix := gatestate.GlobalGateFix(cwd, hooks)
+		ctx = append(ctx, "commit-gate does not gate every repository on this host: "+p+". A repository without its own gate setting is ungated, which counts as a missing gate: do not commit or push in it. The user was shown the fix: "+fix+".")
+		user = append(user, "commit-gate: "+p+", so repos here are ungated. To gate every repo: "+fix)
 	}
 	if repo, err := gatestate.Open(cwd); err == nil && repo.State(hooks) == gatestate.StateOverridden {
-		hp, _, _, _ := repo.HooksPath()
 		top, terr := repo.Toplevel()
 		if terr != nil {
 			top = cwd
 		}
-		ctx = append(ctx, "commit-gate does not gate this repository ("+top+"): its repo-local core.hooksPath ("+hp+") overrides the gate, which counts as a missing gate: do not commit or push here. The user was told `gate-enable` gates it, clearing that core.hooksPath and so stopping the hooks it names, and `gate-disable` opts out. Do not run `gate-enable` without their explicit yes.")
-		user = append(user, "commit-gate: "+top+" is ungated: its core.hooksPath is "+hp+". To gate it: gate-enable (clears that core.hooksPath). To opt out: gate-disable")
+		hp, scope, _, _ := repo.HooksPath()
+		c, u := describeOverride(hp, scope).notice(top)
+		ctx = append(ctx, c)
+		user = append(user, u)
 	}
 	if len(ctx) == 0 {
 		return 0

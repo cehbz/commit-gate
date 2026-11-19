@@ -60,3 +60,81 @@ func TestR4HomeVariable(t *testing.T) {
 	wantSilent(t, "cat $HOME/.gitconfig")
 	wantSilent(t, "echo x >> ${HOME:-/home/u}/.gitconfig.bak")
 }
+
+// cp writes only its destination: the last operand, or the directory -t or
+// --target-directory names. Its sources are reads. mv removes its source,
+// so every argument of mv stays checked.
+func TestR4CpChecksOnlyItsDestination(t *testing.T) {
+	// copying a protected file elsewhere is a read of it
+	wantSilent(t, "cp ~/.gitconfig ~/.gitconfig.bak")
+	wantSilent(t, "cp .git/config /tmp/x")
+	wantSilent(t, "cp /home/u/.config/git/config /tmp/x")
+	wantSilent(t, "cp -r /x/.git/hooks /tmp/h")
+	wantSilent(t, "cp /inst/commit-gate /tmp/cg")
+	wantSilent(t, "cp -t /tmp /home/u/.gitconfig")
+	wantSilent(t, "cp -t/tmp /home/u/.gitconfig")
+	wantSilent(t, "cp -pt /tmp /home/u/.gitconfig")
+	wantSilent(t, "cp --target-directory=/tmp /x/.git/config")
+	wantSilent(t, "cp --target-directory /tmp /x/.git/config")
+	wantSilent(t, "cp --target-directory=$HOME/bak /x/.git/config")
+	wantSilent(t, "cp -t$HOME/bak /home/u/.gitconfig")
+	wantSilent(t, "cp -t$BAK ~/.gitconfig")
+	wantSilent(t, `cp -t"$BAK" ~/.gitconfig`)
+	wantSilent(t, "cp -t$(pwd) /home/u/.gitconfig")
+	wantSilent(t, "cp -T /home/u/.gitconfig /tmp/x")
+	wantSilent(t, "cp -S .orig /home/u/.gitconfig /tmp/x")
+	wantSilent(t, "cp --suffix .orig /home/u/.gitconfig /tmp/x")
+	wantSilent(t, "cp --backup=numbered /home/u/.gitconfig /tmp/x")
+	// copying onto one is a write
+	wantDeny(t, "cp x ~/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp x /r/.git/hooks/pre-push", MsgWriteTarget)
+	wantDeny(t, "cp ~/.gitconfig.bak ~/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp -t /inst x", MsgWriteTarget)
+	wantDeny(t, "cp -t/inst x", MsgWriteTarget)
+	wantDeny(t, "cp -rt /x/.git/hooks pre-push", MsgWriteTarget)
+	wantDeny(t, "cp --target-directory=/inst x", MsgWriteTarget)
+	wantDeny(t, "cp --target-directory /x/.git/hooks pre-push", MsgWriteTarget)
+	wantDeny(t, "cp --target-directory=$HOME/r/.git/hooks pre-push", MsgWriteTarget)
+	wantDeny(t, "cp --target-directory=${HOME}/r/.git/hooks pre-push", MsgWriteTarget)
+	wantDeny(t, "cp -t$HOME/r/.git/hooks pre-push", MsgWriteTarget)
+	wantDeny(t, "cp -rt$HOME/r/.git/hooks pre-push", MsgWriteTarget)
+	wantDeny(t, `cp "--target-directory=$HOME/r/.git/commit-gate" x`, MsgWriteTarget)
+	wantDeny(t, "cp -T /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp -S .bak /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp -fS.bak /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp --suffix .bak /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp --suffix=.bak /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp --sparse always /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp --no-preserve mode /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp --backup=numbered /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp /tmp/x /home/u/.gitconfig -v", MsgWriteTarget)
+	wantDeny(t, "cp -- /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	// BSD cp ends options at the first operand: its last word is the target
+	wantDeny(t, "cp /tmp/x -S /home/u/.gitconfig", MsgWriteTarget)
+	// mv still checks its source
+	wantDeny(t, "mv /home/u/.gitconfig /tmp/x", MsgWriteTarget)
+	wantDeny(t, "mv -t /tmp /x/.git/hooks/pre-push", MsgWriteTarget)
+	// and its target directory in every spelling
+	wantDeny(t, "mv -t /r/.git/hooks x", MsgWriteTarget)
+	wantDeny(t, "mv -t/r/.git/hooks x", MsgWriteTarget)
+	wantDeny(t, "mv -ft/r/.git/hooks x", MsgWriteTarget)
+	wantDeny(t, "mv --target-directory=/r/.git/hooks x", MsgWriteTarget)
+	wantDeny(t, "mv --target-directory /r/.git/hooks x", MsgWriteTarget)
+	wantDeny(t, "mv -t$HOME/r/.git/hooks x", MsgWriteTarget)
+	wantDeny(t, "mv --target-directory=${HOME}/r/.git/hooks x", MsgWriteTarget)
+	wantSilent(t, "mv -t/tmp x")
+}
+
+// An attached $HOME target names the install dir under the home directory;
+// an attached expansion after -S leaves the destination the last operand.
+func TestR4CpAttachedValueForms(t *testing.T) {
+	ctx := fakeCtx()
+	ctx.InstallDir = "/home/u/.local/libexec/commit-gate"
+	d := Decide(ToolCall{ToolName: "Bash", Command: "cp -t$HOME/.local/libexec/commit-gate x", CWD: "/w"}, ctx)
+	if d.Kind != Deny || d.Reason != MsgWriteTarget {
+		t.Errorf("cp -t$HOME/<install dir>: got %+v", d)
+	}
+	wantDeny(t, "cp -S$SUF x ~/.gitconfig", MsgWriteTarget)
+	wantDeny(t, `cp -S"$SUF" x /home/u/.gitconfig`, MsgWriteTarget)
+	wantSilent(t, "cp -S$SUF ~/.gitconfig /tmp/x")
+}

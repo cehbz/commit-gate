@@ -223,7 +223,21 @@ func TestGateStatusCommandScopeIsOverridden(t *testing.T) {
 	t.Setenv("GIT_CONFIG_KEY_0", "core.hooksPath")
 	t.Setenv("GIT_CONFIG_VALUE_0", elsewhere)
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
-	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from command config)\n"
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from command config: git -c or GIT_CONFIG_* in the environment; removing it from the environment clears it, gate-disable opts out)\n"
+	if code != 0 || out != want {
+		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
+	}
+}
+
+// A worktree-scope override names the command that clears it, as
+// sessioncheck does: gate-enable clears only a repo-local one.
+func TestGateStatusWorktreeScopeNamesItsRemedy(t *testing.T) {
+	repo := mkrepoT(t)
+	elsewhere := t.TempDir()
+	gitSetConfig(t, repo, "extensions.worktreeConfig", "true")
+	gitSetConfig(t, repo, "--worktree", "core.hooksPath", elsewhere)
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from worktree config; git config --worktree --unset core.hooksPath clears it, gate-disable opts out)\n"
 	if code != 0 || out != want {
 		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}

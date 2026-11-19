@@ -36,7 +36,7 @@ done
 # Gate every repo: the global core.hooksPath names the gate's hooks. One
 # naming another directory is reported and left as it is.
 hooks="$(cd "$LIBEXEC/hooks" && pwd -P)"
-current="$(git config --global --type=path --get core.hooksPath || true)"
+current="$(git config --global --includes --type=path --get core.hooksPath || true)"
 if [ -z "$current" ]; then
   git config --global core.hooksPath "$LIBEXEC/hooks"
   echo "Set global core.hooksPath: $LIBEXEC/hooks"

@@ -11,6 +11,27 @@ type Word struct {
 	Text    string // best-effort text; exact when Literal
 	Literal bool   // true iff composed only of literal/quoted-literal parts
 	HomeRel bool   // literal but for a leading $HOME or ${HOME} before a "/"; Text spells it "~"
+	// homeAt is 1 + the offset in Text where a plain $HOME or ${HOME}, the
+	// one expansion of an option word, was dropped (--file=$HOME/x); else 0.
+	homeAt int
+}
+
+// After returns what follows the first n bytes of w, as the value attached
+// to an option word (--target-directory=DIR, -tDIR): literal when w is,
+// HomeRel when the value starts with a plain $HOME or ${HOME} before a "/",
+// else unresolvable.
+func (w Word) After(n int) Word {
+	if n < 0 || n > len(w.Text) {
+		return Word{}
+	}
+	rest := w.Text[n:]
+	switch {
+	case w.Literal:
+		return Word{Text: rest, Literal: true}
+	case w.homeAt == n+1 && strings.HasPrefix(rest, "/"):
+		return Word{Text: "~" + rest, HomeRel: true}
+	}
+	return Word{Text: rest}
 }
 
 type Redirect struct {
@@ -56,6 +77,8 @@ func fromWord(w *syntax.Word) Word {
 	escaped := false  // backslash escapes or $'...' ANSI-C quoting: raw source != executed value
 	first := true     // the next part is the word's first; quotes are not parts
 	homeLead := false // the first part is a plain $HOME or ${HOME}
+	homeAt := -1      // offset in b of a later plain $HOME or ${HOME}
+	expansions := 0   // non-literal parts after the first
 	var walkParts func(parts []syntax.WordPart)
 	walkParts = func(parts []syntax.WordPart) {
 		for _, p := range parts {
@@ -81,8 +104,13 @@ func fromWord(w *syntax.Word) Word {
 					homeLead = true
 					continue
 				}
+				if plainHome(x) {
+					homeAt = b.Len()
+				}
+				expansions++
 				lit = false
 			default: // CmdSubst, ArithmExp, ProcSubst, ExtGlob...
+				expansions++
 				lit = false
 			}
 		}
@@ -104,7 +132,11 @@ func fromWord(w *syntax.Word) Word {
 	if homeLead && lit && !escaped && strings.HasPrefix(text, "/") {
 		return Word{Text: "~" + text, HomeRel: true}
 	}
-	return Word{Text: text, Literal: lit && !escaped && !homeLead}
+	w2 := Word{Text: text, Literal: lit && !escaped && !homeLead}
+	if !homeLead && !escaped && expansions == 1 && homeAt >= 0 && strings.HasPrefix(text, "-") {
+		w2.homeAt = homeAt + 1
+	}
+	return w2
 }
 
 // plainHome reports whether x is $HOME or ${HOME}, with no operator.

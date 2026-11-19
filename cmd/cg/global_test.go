@@ -128,3 +128,161 @@ func TestAnUnapprovedMergeCommitIsRejected(t *testing.T) {
 		t.Fatalf("cg-pending must hold the merge message, got %q", p)
 	}
 }
+
+// globalHooksPathViaInclude runs the test with a global git config that sets
+// no core.hooksPath itself but includes a file setting it to dir.
+func globalHooksPathViaInclude(t *testing.T, dir string) {
+	t.Helper()
+	d := t.TempDir()
+	inc := filepath.Join(d, "hooks.inc")
+	if err := os.WriteFile(inc, []byte("[core]\n\thooksPath = "+dir+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := filepath.Join(d, "gitconfig")
+	if err := os.WriteFile(f, []byte("[include]\n\tpath = "+inc+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", f)
+}
+
+func TestSessioncheckReadsAnIncludedGlobalHooksPath(t *testing.T) {
+	globalHooksPathViaInclude(t, liveHooks(t))
+	if out, _ := runSessioncheck(t, mkrepoT(t)); out != "" {
+		t.Fatalf("an included global core.hooksPath naming the gate must read as set: %q", out)
+	}
+}
+
+func TestGateStatusReadsAnIncludedGlobalHooksPath(t *testing.T) {
+	globalHooksPathViaInclude(t, liveHooks(t))
+	out, errStr, code := runIn(t, mkrepoT(t), "", "commit-gate", "gate-status")
+	if code != 0 || !strings.HasPrefix(out, "commit-gate: enabled\n") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
+	}
+}
+
+func TestGateEnableReadsAnIncludedGlobalHooksPath(t *testing.T) {
+	globalHooksPathViaInclude(t, liveHooks(t))
+	repo := mkrepoT(t)
+	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
+		t.Fatalf("gate-enable: code=%d stderr=%q", code, errStr)
+	}
+	if hp := localHooksPath(t, repo); hp != "" {
+		t.Fatalf("the override must be cleared: %q", hp)
+	}
+}
+
+func TestClearLocalHookspathReadsAnIncludedGlobalHooksPath(t *testing.T) {
+	globalHooksPathViaInclude(t, liveHooks(t))
+	root := t.TempDir()
+	repo := mkrepoAt(t, filepath.Join(root, "r"))
+	gitSetConfig(t, repo, "core.hooksPath", liveHooks(t))
+	out, errStr, code := run(t, "", "commit-gate", "clear-local-hookspath", root)
+	if code != 0 || !strings.HasSuffix(out, "commit-gate: 1 removed, 0 foreign\n") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
+	}
+}
+
+// globalHooksPathViaIncludeIf runs the test with a global git config that
+// sets core.hooksPath to dir only in repo, through an includeIf "gitdir:".
+func globalHooksPathViaIncludeIf(t *testing.T, repo, dir string) {
+	t.Helper()
+	top, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := t.TempDir()
+	inc := filepath.Join(d, "hooks.inc")
+	if err := os.WriteFile(inc, []byte("[core]\n\thooksPath = "+dir+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := filepath.Join(d, "gitconfig")
+	if err := os.WriteFile(f, []byte("[includeIf \"gitdir:"+top+"/\"]\n\tpath = "+inc+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", f)
+}
+
+func TestSessioncheckReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+	repo := mkrepoT(t)
+	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
+	if out, _ := runSessioncheck(t, repo); out != "" {
+		t.Fatalf("the includeIf'd global core.hooksPath gates this repo: %q", out)
+	}
+}
+
+func TestGateEnableReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+	repo := mkrepoT(t)
+	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
+	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
+		t.Fatalf("gate-enable: code=%d stderr=%q", code, errStr)
+	}
+}
+
+func TestGateStatusReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+	repo := mkrepoT(t)
+	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	if code != 0 || !strings.HasPrefix(out, "commit-gate: enabled\n") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
+	}
+}
+
+// clear-local-hookspath removes a repo's gate path only where the global
+// core.hooksPath gates that repo, and counts the others as errors.
+func TestClearLocalHookspathReadsTheGlobalHooksPathPerRepo(t *testing.T) {
+	root := t.TempDir()
+	gated := mkrepoAt(t, filepath.Join(root, "a"))
+	other := mkrepoAt(t, filepath.Join(root, "b"))
+	globalHooksPathViaIncludeIf(t, gated, liveHooks(t))
+	for _, r := range []string{gated, other} {
+		gitSetConfig(t, r, "core.hooksPath", liveHooks(t))
+	}
+	out, errStr, code := run(t, "", "commit-gate", "clear-local-hookspath", root)
+	want := "removed " + gated + ": core.hooksPath was " + liveHooks(t) + "\n" +
+		"commit-gate: 1 removed, 0 foreign, 1 error\n"
+	if code != 1 || out != want || !strings.Contains(errStr, other+": the global core.hooksPath is unset") {
+		t.Fatalf("code=%d stderr=%q\ngot:\n%s\nwant:\n%s", code, errStr, out, want)
+	}
+	if hp := localHooksPath(t, other); hp != liveHooks(t) {
+		t.Fatalf("a repo the global gate doesn't cover keeps its gate path: %q", hp)
+	}
+}
+
+// Where an includeIf sets a foreign global core.hooksPath for a repo, the
+// remedy names the file that sets it, which git config --global doesn't
+// write.
+func TestClearLocalHookspathNamesTheIncludedFileSettingAForeignValue(t *testing.T) {
+	root := t.TempDir()
+	repo := mkrepoAt(t, filepath.Join(root, "r"))
+	elsewhere := t.TempDir()
+	globalHooksPathViaIncludeIf(t, repo, elsewhere)
+	inc := filepath.Join(filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL")), "hooks.inc")
+	gitSetConfig(t, repo, "core.hooksPath", liveHooks(t))
+	_, errStr, code := run(t, "", "commit-gate", "clear-local-hookspath", root)
+	fix := "git config --file " + inc + " core.hooksPath " + liveHooks(t)
+	if code != 1 || !strings.Contains(errStr, fix) || strings.Contains(errStr, "git config --global") {
+		t.Fatalf("code=%d stderr=%q, want the fix %q", code, errStr, fix)
+	}
+}
+
+// sessioncheck and gate-enable name the same remedy clear-local-hookspath
+// does: the included file that sets a foreign global core.hooksPath.
+func TestTheGlobalGateRemedyNamesTheIncludedFileEverywhere(t *testing.T) {
+	repo := mkrepoT(t)
+	globalHooksPathViaIncludeIf(t, repo, t.TempDir())
+	inc := filepath.Join(filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL")), "hooks.inc")
+	fix := "git config --file " + inc + " core.hooksPath " + liveHooks(t)
+	_, so := runSessioncheck(t, repo)
+	if !strings.Contains(so.SystemMessage, fix) || strings.Contains(so.SystemMessage, "git config --global") ||
+		!strings.Contains(so.HookSpecificOutput.AdditionalContext, fix) {
+		t.Fatalf("sessioncheck: %+v, want the fix %q", so, fix)
+	}
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 1 || !strings.Contains(errStr, fix) {
+		t.Fatalf("gate-enable: code=%d stderr=%q, want the fix %q", code, errStr, fix)
+	}
+	if out, _, _ := runIn(t, repo, "", "commit-gate", "gate-status"); !strings.Contains(out, fix) {
+		t.Fatalf("gate-status: %q, want the fix %q", out, fix)
+	}
+}
