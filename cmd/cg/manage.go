@@ -103,19 +103,48 @@ func cmdGateDisable(args []string) int {
 	return 0
 }
 
-// cmdGateStatus implements the `gate-status` command: report opted-out,
-// enabled (with pending approvals + push token state), or undecided.
+// cmdGateStatus implements the `gate-status` command: report the repo
+// opted-out, enabled (with pending approvals + push token state), overridden
+// by a core.hooksPath above the global one (naming it, and its scope when not
+// repo-local), or ungated (naming why); an unreadable core.hooksPath is an
+// error.
 func cmdGateStatus(_ []string) int {
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
 	if err != nil {
 		return dieApprove("not inside a git repository")
 	}
-	if repo.Disabled() {
+	hooks := liveHooksDir()
+	switch repo.State(hooks) {
+	case gatestate.StateDisabled:
 		fmt.Println("commit-gate: opted-out")
-		return 0
-	}
-	if repo.Enabled(liveHooksDir()) {
+	case gatestate.StateOverridden:
+		hp, scope, _, err := repo.HooksPath()
+		if err != nil {
+			return dieApprove("cannot read core.hooksPath: %s", err)
+		}
+		if hp == "" {
+			hp = "empty"
+		}
+		if scope == "local" {
+			fmt.Printf("commit-gate: overridden (core.hooksPath is %s; gate-enable clears it, gate-disable opts out)\n", hp)
+		} else {
+			fmt.Printf("commit-gate: overridden (core.hooksPath is %s, from %s config)\n", hp, scope)
+		}
+	case gatestate.StateUngated:
+		hp, scope, ok, err := repo.HooksPath()
+		p := gatestate.GlobalGateProblem(hooks)
+		switch {
+		case err != nil:
+			return dieApprove("cannot read core.hooksPath: %s", err)
+		case p != "":
+			fmt.Printf("commit-gate: ungated (%s; to gate every repo: git config --global core.hooksPath %s)\n", p, hooks)
+		case ok:
+			fmt.Printf("commit-gate: ungated (core.hooksPath is %s, from %s config)\n", hp, scope)
+		default:
+			fmt.Println("commit-gate: ungated (core.hooksPath is unset)")
+		}
+	case gatestate.StateEnabled:
 		fmt.Println("commit-gate: enabled")
 		subj, err := gatestate.ApprovedSubjects(repo.ManifestPath())
 		if err != nil {
@@ -134,9 +163,7 @@ func cmdGateStatus(_ []string) int {
 		} else {
 			fmt.Println("push token: none")
 		}
-		return 0
 	}
-	fmt.Println("commit-gate: undecided (gated at the next Claude Code session start unless opted out: gate-disable)")
 	return 0
 }
 

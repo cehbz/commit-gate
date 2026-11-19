@@ -6,7 +6,7 @@ BIN="$DIR/../bin"; hooks="$(cd "$DIR/../hooks" && pwd)"
 repo="$(mkrepo)"; cd "$repo"
 gate="$(cd "$(git rev-parse --git-common-dir)" && pwd)/commit-gate"
 
-"$BIN/gate-status" | grep -q undecided || fail 'fresh repo should be undecided'
+"$BIN/gate-status" | grep -q '^commit-gate: ungated' || fail 'fresh repo without the global gate should be ungated'
 "$BIN/gate-enable" >/dev/null
 [ "$(git config --get core.hooksPath)" = "$hooks" ] || fail 'gate-enable did not set local hooksPath'
 [ -d "$gate" ] || fail 'gate-enable did not create gate dir'

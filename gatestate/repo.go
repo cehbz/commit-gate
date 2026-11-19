@@ -3,6 +3,7 @@ package gatestate
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,9 +14,15 @@ import (
 type State int
 
 const (
-	StateUndecided State = iota
+	// StateUngated: no override above the global config, and the effective
+	// core.hooksPath is missing, unreadable or not the gate.
+	StateUngated State = iota
 	StateEnabled
 	StateDisabled
+	// StateOverridden: a scope above the global config (local, worktree,
+	// command) sets core.hooksPath to something other than the gate, an
+	// empty value included.
+	StateOverridden
 )
 
 type Repo struct {
@@ -59,35 +66,104 @@ func (r *Repo) Disabled() bool {
 	return err == nil && v == "true"
 }
 
-func (r *Repo) Enabled(hooksDir string) bool {
-	hp, err := git(r.Dir, "config", "--get", "core.hooksPath")
-	if err != nil || hp == "" {
+// HooksPath returns the effective core.hooksPath, ~ expanded and possibly
+// empty, and the scope git read it from: local, worktree, global, system or
+// command. ok is false when no scope sets it; err reports a failed read.
+func (r *Repo) HooksPath() (path, scope string, ok bool, err error) {
+	out, err := git(r.Dir, "config", "--show-scope", "--type=path", "--get", "core.hooksPath")
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return "", "", false, nil // git config --get: the key is not set
+	}
+	if err != nil {
+		return "", "", false, err
+	}
+	scope, path, found := strings.Cut(out, "\t")
+	if !found {
+		return "", "", false, fmt.Errorf("git config --show-scope: unexpected output %q", out)
+	}
+	return path, scope, true, nil
+}
+
+// aboveGlobal reports whether a core.hooksPath from scope overrides the
+// global one.
+func aboveGlobal(scope string) bool {
+	return scope == "local" || scope == "worktree" || scope == "command"
+}
+
+// isGate reports whether a core.hooksPath value names hooksDir; a relative
+// value resolves against the repo.
+func (r *Repo) isGate(hp, hooksDir string) bool {
+	if hp == "" || hooksDir == "" {
 		return false
 	}
 	if !filepath.IsAbs(hp) {
 		hp = filepath.Join(r.Dir, hp)
 	}
-	if rhp, err := filepath.EvalSymlinks(hp); err == nil {
-		hp = rhp
-	} else {
-		return false // bash: cd fails -> not enabled
-	}
-	// Resolve hooksDir for comparison
-	rhooksDir, err := filepath.EvalSymlinks(hooksDir)
-	if err != nil {
-		rhooksDir = hooksDir
-	}
-	return hp == rhooksDir
+	return SameDir(hp, hooksDir)
 }
 
+// SameDir reports whether a and b name one directory after symlink
+// resolution; an a that does not resolve names nothing.
+func SameDir(a, b string) bool {
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		return false
+	}
+	if rb, err := filepath.EvalSymlinks(b); err == nil {
+		b = rb
+	}
+	return ra == b
+}
+
+// Enabled reports whether the effective core.hooksPath, from any scope, is
+// the gate.
+func (r *Repo) Enabled(hooksDir string) bool {
+	hp, _, ok, _ := r.HooksPath()
+	return ok && r.isGate(hp, hooksDir)
+}
+
+// State: opted out wins; else enabled when the effective core.hooksPath is
+// the gate (a value above the global one naming the gate included); else
+// overridden when a value above the global one names anything else, empty
+// included; else ungated, an unreadable value included.
 func (r *Repo) State(hooksDir string) State {
 	if r.Disabled() {
 		return StateDisabled
 	}
-	if r.Enabled(hooksDir) {
+	hp, scope, ok, _ := r.HooksPath() // ok is false on a failed read
+	switch {
+	case !ok:
+		return StateUngated
+	case r.isGate(hp, hooksDir):
 		return StateEnabled
+	case aboveGlobal(scope):
+		return StateOverridden
 	}
-	return StateUndecided
+	return StateUngated
+}
+
+// GlobalHooksPath returns the core.hooksPath in the user's global git
+// config (~/.gitconfig, or $GIT_CONFIG_GLOBAL), ~ expanded.
+func GlobalHooksPath() (string, bool) {
+	out, err := git("/", "config", "--global", "--type=path", "--get", "core.hooksPath")
+	if err != nil || out == "" {
+		return "", false
+	}
+	return out, true
+}
+
+// GlobalGateProblem says why the global core.hooksPath doesn't name
+// hooksDir, or returns "" when it does.
+func GlobalGateProblem(hooksDir string) string {
+	hp, ok := GlobalHooksPath()
+	switch {
+	case !ok:
+		return "the global core.hooksPath is unset"
+	case !SameDir(hp, hooksDir):
+		return "the global core.hooksPath is " + hp + ", not the gate"
+	}
+	return ""
 }
 
 func (r *Repo) HeadMessage() (string, bool) {

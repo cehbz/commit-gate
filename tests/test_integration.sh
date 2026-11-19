@@ -4,7 +4,7 @@ DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
 BIN="$DIR/../bin"; export PATH="$BIN:$PATH"
 
 repo="$(mkrepo)"; cd "$repo"
-"$DIR/../bin/gate-status" | grep -q undecided || fail 'should start undecided'
+"$DIR/../bin/gate-status" | grep -q '^commit-gate: ungated' || fail 'should start ungated'
 gate-enable >/dev/null
 
 echo a > a.txt; git add a.txt

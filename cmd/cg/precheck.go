@@ -91,7 +91,7 @@ func cmdPrecheck() (code int) {
 		cwd, _ = os.Getwd()
 	}
 	if repo, err := gatestate.Open(cwd); err == nil {
-		gated = !repo.Disabled() && repo.Enabled(hooks)
+		gated = repo.State(hooks) == gatestate.StateEnabled
 	}
 	d := policy.Decide(policy.ToolCall{
 		ToolName: in.ToolName,

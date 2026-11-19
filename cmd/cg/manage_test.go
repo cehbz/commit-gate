@@ -147,16 +147,68 @@ func TestGateDisableNonRepoDies(t *testing.T) {
 
 // --- gate-status ---
 
-func TestGateStatusUndecided(t *testing.T) {
+// liveHooks is the hook directory the test binary resolves as its own.
+func liveHooks(t *testing.T) string {
+	t.Helper()
+	h, err := filepath.EvalSymlinks(filepath.Join(binDir, "hooks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h
+}
+
+func TestGateStatusUngatedNamesTheFix(t *testing.T) {
 	noGlobalGate(t)
 	repo := mkrepoT(t)
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
-	if code != 0 {
-		t.Fatalf("gate-status failed: code=%d stderr=%q", code, errStr)
+	want := "commit-gate: ungated (the global core.hooksPath is unset; to gate every repo: git config --global core.hooksPath " + liveHooks(t) + ")\n"
+	if code != 0 || out != want {
+		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}
-	want := "commit-gate: undecided (gated at the next Claude Code session start unless opted out: gate-disable)\n"
-	if out != want {
-		t.Fatalf("stdout mismatch:\ngot:  %q\nwant: %q", out, want)
+}
+
+func TestGateStatusOverriddenNamesTheDirectory(t *testing.T) {
+	repo := mkrepoT(t)
+	elsewhere := t.TempDir()
+	gitSetConfig(t, repo, "core.hooksPath", elsewhere)
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + "; gate-enable clears it, gate-disable opts out)\n"
+	if code != 0 || out != want {
+		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
+	}
+}
+
+func TestGateStatusEmptyLocalHooksPathIsOverridden(t *testing.T) {
+	repo := mkrepoT(t)
+	gitSetConfig(t, repo, "core.hooksPath", "")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	want := "commit-gate: overridden (core.hooksPath is empty; gate-enable clears it, gate-disable opts out)\n"
+	if code != 0 || out != want {
+		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
+	}
+}
+
+func TestGateStatusCommandScopeIsOverridden(t *testing.T) {
+	repo := mkrepoT(t)
+	elsewhere := t.TempDir()
+	t.Setenv("GIT_CONFIG_COUNT", "1")
+	t.Setenv("GIT_CONFIG_KEY_0", "core.hooksPath")
+	t.Setenv("GIT_CONFIG_VALUE_0", elsewhere)
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from command config)\n"
+	if code != 0 || out != want {
+		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
+	}
+}
+
+func TestGateStatusUnreadableHooksPathSaysWhy(t *testing.T) {
+	repo := mkrepoT(t)
+	gitSetConfig(t, repo, "core.hooksPath", "~nosuchuser-commit-gate/hooks")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	if code != 1 || out != "" ||
+		!strings.HasPrefix(errStr, "commit-gate: cannot read core.hooksPath: ") ||
+		!strings.Contains(errStr, "~nosuchuser-commit-gate/hooks") {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
 	}
 }
 
