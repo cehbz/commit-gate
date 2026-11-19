@@ -44,6 +44,21 @@ type configOp struct {
 	value    shellscan.Word
 	unset    bool
 	read     bool
+	sections []string // lowercased section names a remove-section or rename-section names
+}
+
+// configValueFlags take the next token as their value, not the key.
+var configValueFlags = map[string]bool{
+	"--file": true, "-f": true, "--blob": true,
+	"--type": true, "-t": true, "--default": true, "--comment": true, "--value": true,
+}
+
+// configSubcommands maps git config's subcommands (git 2.46+, valid only as
+// the first argument) to the option of the older syntax each replaces; set
+// is the older syntax's default.
+var configSubcommands = map[string]string{
+	"get": "--get", "list": "--list", "set": "", "unset": "--unset",
+	"remove-section": "--remove-section", "rename-section": "--rename-section",
 }
 
 // parse `git config ...` args; ok=false when inv is not a git config invocation.
@@ -53,25 +68,42 @@ func parseGitConfig(inv shellscan.Invocation) (configOp, bool) {
 		return configOp{}, false
 	}
 	var op configOp
+	sectionOp := false
+	mode := func(flag string) {
+		switch flag {
+		case "--unset", "--unset-all":
+			op.unset = true
+		case "--get", "--get-all", "--get-regexp", "-l", "--list":
+			op.read = true
+		case "--remove-section", "--rename-section":
+			sectionOp = true
+		}
+	}
+	if len(rest) > 0 && rest[0].Literal {
+		if flag, isSub := configSubcommands[rest[0].Text]; isSub {
+			mode(flag)
+			rest = rest[1:]
+		}
+	}
 	var nonFlags []shellscan.Word
 	skip := false
 	for _, a := range rest {
 		if skip {
-			skip = false // consumed the value of --file/-f/--blob
+			skip = false // consumed a value flag's value
 			continue
 		}
 		if a.Literal && strings.HasPrefix(a.Text, "-") {
-			switch a.Text {
-			case "--unset", "--unset-all":
-				op.unset = true
-			case "--get", "--get-all", "--get-regexp", "-l", "--list":
-				op.read = true
-			case "--file", "-f", "--blob":
-				skip = true // these consume the next token (a path/blob), not the key
-			}
+			mode(a.Text)
+			skip = configValueFlags[a.Text]
 			continue
 		}
 		nonFlags = append(nonFlags, a)
+	}
+	if sectionOp {
+		for _, w := range nonFlags {
+			op.sections = append(op.sections, strings.ToLower(w.Text))
+		}
+		return op, true
 	}
 	if len(nonFlags) > 0 {
 		op.key = strings.ToLower(nonFlags[0].Text)
@@ -100,8 +132,10 @@ func ruleDisabledKey(inv shellscan.Invocation, _ ToolCall, _ Ctx) (Decision, boo
 	return Decision{}, false // bare read of the key
 }
 
-// R3: writes of core.hooksPath — only a literal value resolving exactly to
-// the live hooks dir is a permitted enable.
+// R3: writes of core.hooksPath in any scope and either syntax (options or
+// git 2.46's subcommands), and removing or renaming the core section — only
+// a literal value resolving exactly to the live hooks dir is a permitted
+// enable.
 func ruleHooksPath(inv shellscan.Invocation, tc ToolCall, ctx Ctx) (Decision, bool) {
 	enableOK := func(v shellscan.Word) bool {
 		return v.Literal && ctx.Resolve(tc.CWD, v.Text) == ctx.HooksDir
@@ -115,7 +149,15 @@ func ruleHooksPath(inv shellscan.Invocation, tc ToolCall, ctx Ctx) (Decision, bo
 		}
 	}
 	op, ok := parseGitConfig(inv)
-	if !ok || op.read || op.key != "core.hookspath" {
+	if !ok {
+		return Decision{}, false
+	}
+	for _, s := range op.sections {
+		if s == "core" {
+			return deny(MsgHooksPath), true // the section holding core.hooksPath
+		}
+	}
+	if op.read || op.key != "core.hookspath" {
 		return Decision{}, false
 	}
 	if op.unset || !op.hasValue || !enableOK(op.value) {

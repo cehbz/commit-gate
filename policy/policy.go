@@ -14,10 +14,11 @@ type ToolCall struct {
 }
 
 type Ctx struct {
-	InstallDir string                        // resolved dir of the live binary
-	HooksDir   string                        // resolved InstallDir/hooks
-	GatedCWD   bool                          // cwd's repo is gated (computed by caller)
-	Resolve    func(cwd, path string) string // abs+symlink resolution; injected (pure fake in tests)
+	InstallDir       string                        // resolved dir of the live binary
+	HooksDir         string                        // resolved InstallDir/hooks
+	GlobalGitConfigs []string                      // resolved paths of the user's global git config files (~/.gitconfig, $XDG_CONFIG_HOME/git/config)
+	GatedCWD         bool                          // cwd's repo is gated (computed by caller)
+	Resolve          func(cwd, path string) string // abs+symlink resolution; injected (pure fake in tests)
 }
 
 type Kind int
@@ -85,7 +86,8 @@ func reminderOrSilent(res shellscan.Result, tc ToolCall, ctx Ctx) Decision {
 // R6: Write/Edit/MultiEdit/NotebookEdit write-target checks. settings.json is
 // checked before protectedClass since it isn't part of that (Bash-oriented)
 // classification. The gate SOURCE repo is deliberately not protected here —
-// only installed artifacts (install dir, gate state, native hooks, git config).
+// only installed artifacts (install dir, gate state, native hooks, git config,
+// the global git config).
 func decideFileTool(tc ToolCall, ctx Ctx) Decision {
 	if tc.FilePath == "" {
 		return silent()
@@ -102,6 +104,8 @@ func decideFileTool(tc ToolCall, ctx Ctx) Decision {
 		return deny(MsgEditHooks)
 	case "gitconfig":
 		return deny(MsgEditConfig)
+	case "globalgitconfig":
+		return deny(MsgEditGlobalConfig)
 	}
 	return silent()
 }

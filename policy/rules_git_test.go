@@ -63,3 +63,41 @@ func TestR2R3CaseInsensitive(t *testing.T) {
 	wantDeny(t, "git config COMMIT-GATE.DISABLED true", MsgDisabled)
 	wantDeny(t, "git -c Commit-Gate.Disabled=true commit -F /tmp/m", MsgDisabled)
 }
+
+func TestR3GlobalScopeAndSectionOps(t *testing.T) {
+	// --global is a flag like any other: these were R3's already.
+	wantDeny(t, "git config --global core.hooksPath /tmp/evil", MsgHooksPath)
+	wantDeny(t, "git config --global --unset core.hooksPath", MsgHooksPath)
+	wantDeny(t, "git config --global --unset-all core.hooksPath", MsgHooksPath)
+	wantSilent(t, "git config --global core.hooksPath /inst/hooks") // enable
+	wantSilent(t, "git config --global --get core.hooksPath")
+	// The core section holds core.hooksPath: removing or renaming it drops
+	// the value, and renaming another section to core can set it.
+	wantDeny(t, "git config --global --remove-section core", MsgHooksPath)
+	wantDeny(t, "git config --global --remove-section Core", MsgHooksPath)
+	wantDeny(t, "git config --global --rename-section core old", MsgHooksPath)
+	wantDeny(t, "git config --rename-section stash core", MsgHooksPath)
+	wantSilent(t, "git config --global --remove-section alias")
+	// A value-taking flag's value is not the key.
+	wantDeny(t, "git config --global --comment why core.hooksPath /tmp/evil", MsgHooksPath)
+}
+
+func TestR2R3ConfigSubcommands(t *testing.T) {
+	// git 2.46+: the subcommand is the first argument after config.
+	wantDeny(t, "git config set --global core.hooksPath /tmp/evil", MsgHooksPath)
+	wantDeny(t, "git config unset --global core.hooksPath", MsgHooksPath)
+	wantDeny(t, "git config unset --global --value /inst/hooks core.hooksPath", MsgHooksPath)
+	wantDeny(t, "git config remove-section --global core", MsgHooksPath)
+	wantDeny(t, "git config rename-section --global core old", MsgHooksPath)
+	wantDeny(t, "git config set commit-gate.disabled true", MsgDisabled)
+	wantDeny(t, "git config unset commit-gate.disabled", MsgDisabled)
+	// -t is --type's short form: its value is not the key, in either syntax.
+	wantDeny(t, "git config --global -t path core.hooksPath /tmp/evil", MsgHooksPath)
+	wantDeny(t, "git config set --global -t path core.hooksPath /tmp/evil", MsgHooksPath)
+	wantDeny(t, "git config -t bool commit-gate.disabled true", MsgDisabled)
+	wantDeny(t, "git config set -t bool commit-gate.disabled true", MsgDisabled)
+	wantSilent(t, "git config set --global core.hooksPath /inst/hooks") // enable
+	wantSilent(t, "git config get --global core.hooksPath")
+	wantSilent(t, "git config get commit-gate.disabled")
+	wantSilent(t, "git config list --global")
+}

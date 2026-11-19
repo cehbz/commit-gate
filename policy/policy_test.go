@@ -7,12 +7,16 @@ import (
 
 func fakeCtx() Ctx {
 	return Ctx{
-		InstallDir: "/inst",
-		HooksDir:   "/inst/hooks",
+		InstallDir:       "/inst",
+		HooksDir:         "/inst/hooks",
+		GlobalGitConfigs: []string{"/home/u/.gitconfig", "/home/u/.config/git/config"},
 		Resolve: func(cwd, p string) string {
 			// pure fake: /inst/hooks resolves to itself; relative joins cwd
 			if strings.HasPrefix(p, "/") {
 				return p
+			}
+			if strings.HasPrefix(p, "~/") {
+				return "/home/u/" + p[2:] // as realResolve expands ~/
 			}
 			return cwd + "/" + p
 		},
