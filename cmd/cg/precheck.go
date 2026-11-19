@@ -108,10 +108,10 @@ func cmdPrecheck() (code int) {
 	return 0
 }
 
-// cmdSessioncheck is the SessionStart hook: an undecided repo (neither
-// enabled nor opted out) is enabled, and the user (systemMessage) and the
-// model (additionalContext) are told, including when enabling fails.
-// Enabled, opted-out and non-repo directories stay silent.
+// cmdSessioncheck is the SessionStart hook. It changes nothing: it tells the
+// user (systemMessage) and the model (additionalContext) when the global
+// core.hooksPath is missing or not the gate, and when the session's repo
+// overrides the gate with a repo-local core.hooksPath. Otherwise silent.
 func cmdSessioncheck() int {
 	in, err := harness.ParseInput(os.Stdin)
 	if err != nil {
@@ -121,25 +121,24 @@ func cmdSessioncheck() int {
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
-	repo, err := gatestate.Open(cwd)
-	if err != nil {
+	hooks := liveHooksDir()
+	var ctx, user []string
+	if p := gatestate.GlobalGateProblem(hooks); p != "" {
+		ctx = append(ctx, "commit-gate does not gate every repository on this host: "+p+". A repository without its own gate setting is ungated, which counts as a missing gate: do not commit or push in it. The user was shown the fix: git config --global core.hooksPath "+hooks+".")
+		user = append(user, "commit-gate: "+p+", so repos here are ungated. To gate every repo: git config --global core.hooksPath "+hooks)
+	}
+	if repo, err := gatestate.Open(cwd); err == nil && repo.State(hooks) == gatestate.StateOverridden {
+		hp, _, _, _ := repo.HooksPath()
+		top, terr := repo.Toplevel()
+		if terr != nil {
+			top = cwd
+		}
+		ctx = append(ctx, "commit-gate does not gate this repository ("+top+"): its repo-local core.hooksPath ("+hp+") overrides the gate, which counts as a missing gate: do not commit or push here. The user was told `gate-enable` gates it, clearing that core.hooksPath and so stopping the hooks it names, and `gate-disable` opts out. Do not run `gate-enable` without their explicit yes.")
+		user = append(user, "commit-gate: "+top+" is ungated: its core.hooksPath is "+hp+". To gate it: gate-enable (clears that core.hooksPath). To opt out: gate-disable")
+	}
+	if len(ctx) == 0 {
 		return 0
 	}
-	if repo.Disabled() || repo.Enabled(liveHooksDir()) {
-		return 0
-	}
-	top, terr := repo.Toplevel()
-	if terr != nil {
-		top = cwd
-	}
-	if err := repo.Enable(liveHooksDir()); err != nil {
-		os.Stdout.Write(harness.SessionNotice(
-			"commit-gate could not be enabled in this repository ("+top+"): "+err.Error()+". A missing gate means commits are denied: do not commit or push here. The user was shown this failure and can run `gate-enable` to retry or `gate-disable` to opt out.",
-			"commit-gate: could not enable in "+top+": "+err.Error()+". Commits here are denied until fixed: run gate-enable to retry, or gate-disable to opt out."))
-		return 0
-	}
-	os.Stdout.Write(harness.SessionNotice(
-		"commit-gate was enabled by default in this repository ("+top+"): commits and pushes here now need the user's recorded approval (workflow: ~/.claude/CLAUDE.md, \"Commits, pushes and publishing\"). The user was told they can opt out by running `gate-disable`.",
-		"commit-gate: enabled in "+top+" (default). To opt out: gate-disable"))
+	os.Stdout.Write(harness.SessionNotice(strings.Join(ctx, " "), strings.Join(user, "\n")))
 	return 0
 }

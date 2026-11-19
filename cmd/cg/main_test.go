@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/cehbz/commit-gate/gatestate"
 )
 
 var (
@@ -127,70 +125,79 @@ func runSessioncheck(t *testing.T, dir string) (string, sessionOut) {
 	return out, so
 }
 
-func TestSessioncheckEnablesUndecidedRepo(t *testing.T) {
+// setGlobalHooksPath runs the test with a global git config whose
+// core.hooksPath is dir.
+func setGlobalHooksPath(t *testing.T, dir string) {
+	t.Helper()
+	f := filepath.Join(t.TempDir(), "gitconfig")
+	if err := os.WriteFile(f, []byte("[core]\n\thooksPath = "+dir+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", f)
+}
+
+func TestSessioncheckIsSilentWhenTheGlobalGateCoversTheRepo(t *testing.T) {
+	if out, _ := runSessioncheck(t, mkrepoT(t)); out != "" {
+		t.Fatalf("must be silent: %q", out)
+	}
+}
+
+func TestSessioncheckReportsAMissingGlobalHooksPath(t *testing.T) {
 	noGlobalGate(t)
 	repo := mkrepoT(t)
-	top := showToplevel(t, repo)
 	_, so := runSessioncheck(t, repo)
-	if want := "commit-gate: enabled in " + top + " (default). To opt out: gate-disable"; so.SystemMessage != want {
+	want := "commit-gate: the global core.hooksPath is unset, so repos here are ungated. To gate every repo: git config --global core.hooksPath " + liveHooks(t)
+	if so.SystemMessage != want {
+		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
+	}
+	if ctx := so.HookSpecificOutput.AdditionalContext; !strings.Contains(ctx, "do not commit or push") {
+		t.Fatalf("additionalContext: %q", ctx)
+	}
+	if hp := localHooksPath(t, repo); hp != "" {
+		t.Fatalf("sessioncheck must not enable repo by repo: %q", hp)
+	}
+}
+
+func TestSessioncheckReportsAForeignGlobalHooksPathOutsideAnyRepo(t *testing.T) {
+	other := t.TempDir()
+	setGlobalHooksPath(t, other)
+	_, so := runSessioncheck(t, t.TempDir())
+	want := "commit-gate: the global core.hooksPath is " + other + ", not the gate, so repos here are ungated. To gate every repo: git config --global core.hooksPath " + liveHooks(t)
+	if so.SystemMessage != want {
+		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
+	}
+}
+
+func TestSessioncheckReportsAnOverriddenRepo(t *testing.T) {
+	repo := mkrepoT(t)
+	top := showToplevel(t, repo)
+	elsewhere := t.TempDir()
+	gitSetConfig(t, repo, "core.hooksPath", elsewhere)
+	_, so := runSessioncheck(t, repo)
+	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ". To gate it: gate-enable (clears that core.hooksPath). To opt out: gate-disable"
+	if so.SystemMessage != want {
 		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
 	}
 	ctx := so.HookSpecificOutput.AdditionalContext
-	if so.HookSpecificOutput.HookEventName != "SessionStart" ||
-		!strings.Contains(ctx, "enabled by default") || !strings.Contains(ctx, "gate-disable") || !strings.Contains(ctx, top) {
-		t.Fatalf("additionalContext: %+v", so.HookSpecificOutput)
+	if !strings.Contains(ctx, "do not commit or push here") || !strings.Contains(ctx, "explicit yes") {
+		t.Fatalf("additionalContext: %q", ctx)
 	}
-
-	wantHooks, _ := filepath.EvalSymlinks(filepath.Join(binDir, "hooks"))
-	if got, _ := filepath.EvalSymlinks(gitGetConfig(t, repo, "core.hooksPath")); got != wantHooks {
-		t.Fatalf("core.hooksPath resolves to %q, want %q", got, wantHooks)
-	}
-	r, err := gatestate.Open(repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(r.ManifestPath()); err != nil {
-		t.Fatalf("manifest must exist: %v", err)
-	}
-
-	if out, _ := runSessioncheck(t, repo); out != "" {
-		t.Fatalf("now-enabled repo must be silent: %q", out)
+	if hp := localHooksPath(t, repo); hp != elsewhere {
+		t.Fatalf("sessioncheck must leave the override: %q", hp)
 	}
 }
 
 func TestSessioncheckLeavesOptedOutRepo(t *testing.T) {
-	noGlobalGate(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "commit-gate.disabled", "true")
 	if out, _ := runSessioncheck(t, repo); out != "" {
 		t.Fatalf("opted-out repo must be silent: %q", out)
 	}
-	if hp := gitGetConfig(t, repo, "core.hooksPath"); hp != "" {
+	if hp := localHooksPath(t, repo); hp != "" {
 		t.Fatalf("opted-out repo must stay untouched, core.hooksPath=%q", hp)
 	}
 	if v := gitGetConfig(t, repo, "commit-gate.disabled"); v != "true" {
 		t.Fatalf("opt-out must survive, commit-gate.disabled=%q", v)
-	}
-}
-
-func TestSessioncheckReportsEnableFailure(t *testing.T) {
-	noGlobalGate(t)
-	repo := mkrepoT(t)
-	top := showToplevel(t, repo)
-	r, err := gatestate.Open(repo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(r.GateDir(), nil, 0o644); err != nil { // a file where the gate dir goes
-		t.Fatal(err)
-	}
-	_, so := runSessioncheck(t, repo)
-	if !strings.HasPrefix(so.SystemMessage, "commit-gate: could not enable in "+top+":") {
-		t.Fatalf("systemMessage: %q", so.SystemMessage)
-	}
-	ctx := so.HookSpecificOutput.AdditionalContext
-	if !strings.Contains(ctx, "could not be enabled") || !strings.Contains(ctx, "denied") {
-		t.Fatalf("additionalContext: %q", ctx)
 	}
 }
 
