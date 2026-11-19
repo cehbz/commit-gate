@@ -10,6 +10,7 @@ import (
 type Word struct {
 	Text    string // best-effort text; exact when Literal
 	Literal bool   // true iff composed only of literal/quoted-literal parts
+	HomeRel bool   // literal but for a leading $HOME or ${HOME} before a "/"; Text spells it "~"
 }
 
 type Redirect struct {
@@ -52,10 +53,18 @@ func fromWord(w *syntax.Word) Word {
 	}
 	var b strings.Builder
 	lit := true
-	escaped := false // backslash escapes or $'...' ANSI-C quoting: raw source != executed value
+	escaped := false  // backslash escapes or $'...' ANSI-C quoting: raw source != executed value
+	first := true     // the next part is the word's first; quotes are not parts
+	homeLead := false // the first part is a plain $HOME or ${HOME}
 	var walkParts func(parts []syntax.WordPart)
 	walkParts = func(parts []syntax.WordPart) {
 		for _, p := range parts {
+			if dq, ok := p.(*syntax.DblQuoted); ok {
+				walkParts(dq.Parts)
+				continue
+			}
+			isFirst := first
+			first = false
 			switch x := p.(type) {
 			case *syntax.Lit:
 				if strings.ContainsRune(x.Value, '\\') {
@@ -67,9 +76,13 @@ func fromWord(w *syntax.Word) Word {
 					escaped = true // $'...' resolves C-style escapes; raw value is not the executed text
 				}
 				b.WriteString(x.Value)
-			case *syntax.DblQuoted:
-				walkParts(x.Parts)
-			default: // ParamExp, CmdSubst, ArithmExp, ProcSubst, ExtGlob...
+			case *syntax.ParamExp:
+				if isFirst && plainHome(x) {
+					homeLead = true
+					continue
+				}
+				lit = false
+			default: // CmdSubst, ArithmExp, ProcSubst, ExtGlob...
 				lit = false
 			}
 		}
@@ -81,11 +94,25 @@ func fromWord(w *syntax.Word) Word {
 	wc := *w
 	syntax.SplitBraces(&wc) // valid brace expansions become BraceExp parts -> non-literal below
 	walkParts(wc.Parts)
+	// A leading plain $HOME before a literal "/..." is the home dir as ~ is:
+	// such a word is HomeRel with Text "~/...", so path checks can resolve it.
 	// An escape-bearing word is treated as non-literal: its executed value cannot
 	// be trusted to equal its source bytes, so policy must treat it as unresolvable
 	// rather than as an exact literal match. Plain single-quoted strings (Dollar
 	// false) and unescaped concatenations stay literal.
-	return Word{Text: b.String(), Literal: lit && !escaped}
+	text := b.String()
+	if homeLead && lit && !escaped && strings.HasPrefix(text, "/") {
+		return Word{Text: "~" + text, HomeRel: true}
+	}
+	return Word{Text: text, Literal: lit && !escaped && !homeLead}
+}
+
+// plainHome reports whether x is $HOME or ${HOME}, with no operator.
+func plainHome(x *syntax.ParamExp) bool {
+	return x.Param != nil && x.Param.Value == "HOME" && x.Flags == nil &&
+		!x.Excl && !x.Length && !x.Width && !x.IsSet &&
+		x.NestedParam == nil && x.Index == nil && len(x.Modifiers) == 0 &&
+		x.Slice == nil && x.Repl == nil && x.Names == 0 && x.Exp == nil
 }
 
 // writeOp reports whether a redirect operator targets a path (isRedirect) and,

@@ -67,6 +67,25 @@ func realResolve(cwd, path string) string {
 	}
 }
 
+// globalGitConfigs returns the resolved paths of the files git reads as the
+// user's global config: ~/.gitconfig and $XDG_CONFIG_HOME/git/config, the
+// latter under ~/.config when XDG_CONFIG_HOME is unset or empty, as git
+// looks it up.
+func globalGitConfigs() []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	if xdg == "" {
+		xdg = filepath.Join(home, ".config")
+	}
+	return []string{
+		realResolve("", filepath.Join(home, ".gitconfig")),
+		realResolve("", filepath.Join(xdg, "git", "config")),
+	}
+}
+
 func cmdPrecheck() (code int) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -98,7 +117,7 @@ func cmdPrecheck() (code int) {
 		Command:  in.ToolInput.Command,
 		FilePath: in.Path(),
 		CWD:      cwd,
-	}, policy.Ctx{InstallDir: inst, HooksDir: hooks, GatedCWD: gated, Resolve: realResolve})
+	}, policy.Ctx{InstallDir: inst, HooksDir: hooks, GlobalGitConfigs: globalGitConfigs(), GatedCWD: gated, Resolve: realResolve})
 	switch d.Kind {
 	case policy.Deny:
 		os.Stdout.Write(harness.Deny(d.Reason))

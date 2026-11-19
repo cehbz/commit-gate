@@ -15,6 +15,8 @@ func TestR6FileTools(t *testing.T) {
 		{"/x/.git/hooks/commit-msg", MsgEditHooks},
 		{"/x/.git/config", MsgEditConfig},
 		{"/Users/h/.claude/settings.json", MsgEditSettings},
+		{"/home/u/.gitconfig", MsgEditGlobalConfig},
+		{"/home/u/.config/git/config", MsgEditGlobalConfig},
 	}
 	for _, c := range cases {
 		for _, tool := range []string{"Write", "Edit", "MultiEdit", "NotebookEdit"} {
@@ -25,7 +27,7 @@ func TestR6FileTools(t *testing.T) {
 		}
 	}
 	// The gate SOURCE repo is not protected (boundary change vs bash).
-	for _, p := range []string{"/Users/h/projects/commit-gate/policy/policy.go", "/x/src/main.go", ""} {
+	for _, p := range []string{"/Users/h/projects/commit-gate/policy/policy.go", "/x/src/main.go", "/home/u/.config/git/ignore", ""} {
 		if d := Decide(fileCall("Write", p), fakeCtx()); d.Kind != Silent {
 			t.Errorf("Write %q: %+v want silent", p, d)
 		}

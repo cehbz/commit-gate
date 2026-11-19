@@ -36,3 +36,27 @@ func TestR4SedLongOptionForms(t *testing.T) {
 	wantDeny(t, "sed -i s/a/b/ /x/.git/config", MsgWriteTarget)
 	wantSilent(t, "sed s/a/b/ /x/.git/config") // no in-place: read-only
 }
+
+func TestR4GlobalGitConfig(t *testing.T) {
+	wantDeny(t, "echo '[core]' >> /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "sed -i /hooksPath/d /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "rm /home/u/.config/git/config", MsgWriteTarget)
+	wantDeny(t, "mv /tmp/x /home/u/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "cp /tmp/x /home/u/.config/git/config", MsgWriteTarget)
+	wantDeny(t, "tee /home/u/.gitconfig < /tmp/x", MsgWriteTarget)
+	wantDeny(t, "truncate -s 0 /home/u/.gitconfig", MsgWriteTarget)
+	wantSilent(t, "cat /home/u/.gitconfig")                 // reads stay allowed
+	wantSilent(t, "sed -n /hooksPath/p /home/u/.gitconfig") // no -i: read-only sed
+	wantSilent(t, "echo x > /home/u/.gitconfig.bak")        // not the config file
+	wantSilent(t, "echo x > /home/u/.config/git/ignore")    // its neighbour
+}
+
+func TestR4HomeVariable(t *testing.T) {
+	// $HOME is the agent's ordinary spelling of the home dir, as ~ is.
+	wantDeny(t, "echo x >> $HOME/.gitconfig", MsgWriteTarget)
+	wantDeny(t, `echo x >> "$HOME/.gitconfig"`, MsgWriteTarget)
+	wantDeny(t, "echo x >> ${HOME}/.gitconfig", MsgWriteTarget)
+	wantDeny(t, "sed -i /hooksPath/d $HOME/.gitconfig", MsgWriteTarget)
+	wantSilent(t, "cat $HOME/.gitconfig")
+	wantSilent(t, "echo x >> ${HOME:-/home/u}/.gitconfig.bak")
+}

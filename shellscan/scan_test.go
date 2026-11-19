@@ -257,3 +257,31 @@ func TestScanBraceExpansionIsNonLiteral(t *testing.T) {
 		}
 	}
 }
+
+func TestScanHomePrefix(t *testing.T) {
+	cases := []struct {
+		src  string
+		want Word
+	}{
+		{`$HOME/.gitconfig`, Word{Text: "~/.gitconfig", HomeRel: true}},
+		{`${HOME}/.gitconfig`, Word{Text: "~/.gitconfig", HomeRel: true}},
+		{`"$HOME/.gitconfig"`, Word{Text: "~/.gitconfig", HomeRel: true}},
+		{`"$HOME"/.gitconfig`, Word{Text: "~/.gitconfig", HomeRel: true}},
+		{`"${HOME}/.config/git/config"`, Word{Text: "~/.config/git/config", HomeRel: true}},
+		{`$HOME`, Word{}}, // no path after it
+		{`$HOMEX/.gitconfig`, Word{Text: "/.gitconfig"}}, // another variable
+		{`${HOME:-/x}/.gitconfig`, Word{Text: "/.gitconfig"}},
+		{`$HOME/$X`, Word{Text: "/"}},                     // not literal after it
+		{`/a$HOME/b`, Word{Text: "/a/b"}},                 // not leading
+		{`$HOME\/.gitconfig`, Word{Text: `\/.gitconfig`}}, // escaped rest
+	}
+	for _, c := range cases {
+		r := Scan("cat " + c.src)
+		if r.ParseErr || len(r.Invocations) != 1 || len(r.Invocations[0].Args) != 1 {
+			t.Fatalf("%s: %+v", c.src, r)
+		}
+		if got := r.Invocations[0].Args[0]; got != c.want {
+			t.Errorf("%s: got %+v, want %+v", c.src, got, c.want)
+		}
+	}
+}

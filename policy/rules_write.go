@@ -7,12 +7,18 @@ import (
 )
 
 // protectedClass reports whether a RESOLVED absolute path is in the protected
-// set, and returns the matching class ("" = not protected). R4 always maps
-// every class to MsgWriteTarget; R6 (Task 9) maps the same classes to
+// set (install dir, .git/config, native hooks, gate state, the user's global
+// git config files), and returns the matching class ("" = not protected). R4
+// always maps every class to MsgWriteTarget; R6 maps the same classes to
 // per-target edit messages.
 func protectedClass(resolved string, ctx Ctx) string {
 	if ctx.InstallDir != "" && (resolved == ctx.InstallDir || strings.HasPrefix(resolved, ctx.InstallDir+"/")) {
 		return "install"
+	}
+	for _, g := range ctx.GlobalGitConfigs {
+		if resolved == g {
+			return "globalgitconfig"
+		}
 	}
 	parts := strings.Split(resolved, "/")
 	for i, p := range parts {
@@ -35,12 +41,13 @@ func protectedClass(resolved string, ctx Ctx) string {
 
 var writeVerbs = map[string]bool{"rm": true, "mv": true, "cp": true, "tee": true, "truncate": true, "sed": true}
 
-// R4: write-verb args and Write redirect targets resolving into the
-// protected set (install dir, .git/config, native hooks, gate state).
+// R4: write-verb args and Write redirect targets, literal or under $HOME,
+// resolving into the protected set (install dir, .git/config, native hooks,
+// gate state, the global git config).
 func ruleWriteTargets(inv shellscan.Invocation, tc ToolCall, ctx Ctx) (Decision, bool) {
 	check := func(w shellscan.Word) bool {
-		if !w.Literal || w.Text == "" {
-			return false
+		if !(w.Literal || w.HomeRel) || w.Text == "" {
+			return false // HomeRel's Text is "~/...", which Resolve expands
 		}
 		return protectedClass(ctx.Resolve(tc.CWD, w.Text), ctx) != ""
 	}
