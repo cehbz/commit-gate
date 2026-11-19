@@ -19,7 +19,26 @@ deliberate indirection (sabotage), outside the rationalization threat model:
   `rebase.autoStash`, which every host sets. commit-msg runs for a plain commit, a
   non-fast-forward merge and a `reword`; on 2.54.0 also for `cherry-pick --continue` after a
   conflict and for a conflicted merge finished with `git commit`.
+- Indirect global-config writes: `include.path` or `includeIf.<cond>.path` naming a file that
+  sets `core.hooksPath`; `git config --edit`/`-e` with an editor from `GIT_EDITOR`, `EDITOR` or
+  `-c core.editor`.
+- Writers outside R4's verbs: in-place editors other than `sed -i` (`perl -pi`, `python`),
+  `ln`, `dd of=` and `install`.
+- Directory destinations: `cp x ~`, `cp -t ~ x` and `mv x /r/.git` write
+  `<dir>/<basename of the source>`, a protected file when the source is named `.gitconfig`,
+  `config` or `hooks/<name>`; only the destination word is checked.
+- Abbreviated long options, which git and GNU cp accept when unambiguous: `--unset-al`,
+  `--remove-s`, `--typ path`, `--comm c` (the value is read as the key), `cp --target DIR`.
+- `$XDG_CONFIG_HOME` spelled as a variable (`> $XDG_CONFIG_HOME/git/config`); only `$HOME`
+  and `${HOME}` are resolved.
+- `GIT_CONFIG_GLOBAL` set in the agent's environment: the file it names is the global config
+  git reads, and the precheck protects only `~/.gitconfig` and `$XDG_CONFIG_HOME/git/config`.
 Closing any of these means expanding the threat model from rationalization to sabotage.
+
+## Precheck gaps
+- Native hooks: the precheck denies a direct write into `.git/hooks` (cp, mv, rm, tee,
+  `sed -i`, a redirect, Write, Edit) but not `ln`, nor a script that creates the hook, such
+  as a repo's own `install.sh`.
 
 ## Verify empirically (against the running harness)
 - Harness behavior when the PreToolUse command is missing or crashes: does the harness fail
