@@ -32,3 +32,7 @@ Closing any of these means expanding the threat model from rationalization to sa
 ## Harness (not gate code)
 - Pasting `!` commands is unreliable — often needs hand-editing before it runs, and appears
   to echo only the path component. Root cause not isolated.
+
+## Rollout leftovers
+- Delete `commit-gate clear-local-hookspath` (`cmd/cg/clearlocal.go`) once it has run on the
+  Mac and every other host.
