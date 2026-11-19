@@ -1,16 +1,18 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
-BIN="$DIR/../bin"; hooks="$(cd "$DIR/../hooks" && pwd)"
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
+BIN="$DIR/../bin"
 
 repo="$(mkrepo)"; cd "$repo"
 gate="$(cd "$(git rev-parse --git-common-dir)" && pwd)/commit-gate"
 
-"$BIN/gate-status" | grep -q '^commit-gate: ungated' || fail 'fresh repo without the global gate should be ungated'
+"$BIN/gate-status" | grep -q '^commit-gate: enabled$' || fail 'fresh repo should be enabled by the global core.hooksPath'
+elsewhere="$(mktemp -d)"; git config core.hooksPath "$elsewhere"
+"$BIN/gate-status" | grep -q "^commit-gate: overridden (core.hooksPath is $elsewhere" || fail 'repo-local core.hooksPath should read as overridden'
 "$BIN/gate-enable" >/dev/null
-[ "$(git config --get core.hooksPath)" = "$hooks" ] || fail 'gate-enable did not set local hooksPath'
-[ -d "$gate" ] || fail 'gate-enable did not create gate dir'
-"$BIN/gate-status" | grep -q enabled || fail 'should report enabled'
+[ -z "$(git config --local --get core.hooksPath)" ] || fail 'gate-enable did not clear the repo-local core.hooksPath'
+"$BIN/gate-status" | grep -q '^commit-gate: enabled$' || fail 'should report enabled'
+mkdir -p "$gate"
 
 printf '%s  feat: x\n' 0000 > "$gate/approved"; : > "$gate/push-token"
 "$BIN/clear-approvals" >/dev/null

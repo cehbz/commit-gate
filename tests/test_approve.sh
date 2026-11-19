@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
 BIN="$DIR/../bin"; CANON="$DIR/../lib/canonical"
 
 repo="$(mkrepo)"; cd "$repo"; "$BIN/gate-enable" >/dev/null
@@ -30,7 +30,7 @@ grep -q "  feat: pend\$" "$gate/approved" || fail 'pending not recorded'
 printf 'feat: after-token' | "$BIN/approve" --yes >/dev/null
 [ -e "$gate/push-token" ] && fail 'push token survived new approvals' || true
 
-repo2="$(mkrepo)"; cd "$repo2"
+repo2="$(mkrepo)"; git -C "$repo2" config core.hooksPath "$(mktemp -d)"; cd "$repo2"
 if printf 'x' | "$BIN/approve" --yes 2>/dev/null; then fail 'approve allowed when not enabled'; fi
 
 # approve resolves pending state relative to the CALLER's cwd, not a fixed target:

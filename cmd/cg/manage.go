@@ -58,7 +58,8 @@ func cmdApprovePush(args []string) int {
 }
 
 // cmdGateEnable implements the `gate-enable` command: Repo.Enable with the
-// live hooks dir.
+// live hooks dir, which clears the repo's opt-out and its repo-local
+// core.hooksPath so the global core.hooksPath gates it.
 func cmdGateEnable(_ []string) int {
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)

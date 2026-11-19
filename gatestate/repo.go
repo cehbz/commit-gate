@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -182,9 +181,11 @@ func (r *Repo) GitConfigSet(key, value string) error {
 	return err
 }
 
+// GitConfigUnset removes every repo-local value of key; an absent key is no
+// error. Values from other scopes stay.
 func (r *Repo) GitConfigUnset(key string) error {
-	if _, err := git(r.Dir, "config", "--unset", key); err != nil {
-		if _, geterr := git(r.Dir, "config", "--get", key); geterr != nil {
+	if _, err := git(r.Dir, "config", "--local", "--unset-all", key); err != nil {
+		if _, geterr := git(r.Dir, "config", "--local", "--get-all", key); geterr != nil {
 			return nil // already absent
 		}
 		return err
@@ -192,24 +193,60 @@ func (r *Repo) GitConfigUnset(key string) error {
 	return nil
 }
 
-// Enable gates the repo: core.hooksPath points at hooksDir, any opt-out is
-// cleared, and the gate dir and manifest exist (an existing manifest is kept).
+// Enable gates the repo under the global gate: it clears a repo-local
+// opt-out and core.hooksPath. While the global core.hooksPath is not the
+// gate it refuses and changes nothing, since clearing a repo-local value
+// would then leave the repo less gated. An opt-out or override from
+// another scope survives; Enable reports it.
 func (r *Repo) Enable(hooksDir string) error {
 	if hooksDir == "" {
 		return fmt.Errorf("live hooks dir unknown")
 	}
-	if err := r.GitConfigSet("core.hooksPath", hooksDir); err != nil {
+	if p := GlobalGateProblem(hooksDir); p != "" {
+		return fmt.Errorf("%s; to gate every repo: git config --global core.hooksPath %s", p, hooksDir)
+	}
+	if err := r.GitConfigUnset("core.hooksPath"); err != nil {
 		return err
 	}
 	if err := r.GitConfigUnset("commit-gate.disabled"); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(r.GateDir(), 0o755); err != nil {
-		return err
+	switch r.State(hooksDir) {
+	case StateEnabled:
+		return nil
+	case StateDisabled:
+		scope, err := r.configScope("commit-gate.disabled")
+		if err != nil {
+			return err
+		}
+		return remains("commit-gate.disabled is still true", "commit-gate.disabled", scope)
 	}
-	f, err := os.OpenFile(r.ManifestPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	hp, scope, ok, err := r.HooksPath()
+	switch {
+	case err != nil:
+		return err
+	case !ok:
+		return fmt.Errorf("core.hooksPath is unset")
+	}
+	return remains(fmt.Sprintf("core.hooksPath is still %q", hp), "core.hooksPath", scope)
+}
+
+// configScope returns the scope git reads key's effective value from.
+func (r *Repo) configScope(key string) (string, error) {
+	out, err := git(r.Dir, "config", "--show-scope", "--get", key)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return f.Close()
+	scope, _, _ := strings.Cut(out, "\t")
+	return scope, nil
+}
+
+// remains reports a value of key that Enable could not clear, naming the
+// clearing command when it is in the worktree config.
+func remains(what, key, scope string) error {
+	msg := what + ", from " + scope + " config"
+	if scope == "worktree" {
+		msg += "; to clear it: git config --worktree --unset " + key
+	}
+	return errors.New(msg)
 }

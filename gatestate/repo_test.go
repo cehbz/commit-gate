@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -97,9 +98,29 @@ func TestStateTransitions(t *testing.T) {
 // as git -c core.hooksPath=dir sets it.
 func commandHooksPath(t *testing.T, dir string) {
 	t.Helper()
+	commandConfig(t, "core.hooksPath", dir)
+}
+
+// commandConfig runs the test with a command-scope key=value, as git -c
+// sets it.
+func commandConfig(t *testing.T, key, value string) {
+	t.Helper()
 	t.Setenv("GIT_CONFIG_COUNT", "1")
-	t.Setenv("GIT_CONFIG_KEY_0", "core.hooksPath")
-	t.Setenv("GIT_CONFIG_VALUE_0", dir)
+	t.Setenv("GIT_CONFIG_KEY_0", key)
+	t.Setenv("GIT_CONFIG_VALUE_0", value)
+}
+
+// worktreeConfig sets key=value in the repo's worktree-scope config.
+func worktreeConfig(t *testing.T, r *Repo, key, value string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"config", "extensions.worktreeConfig", "true"},
+		{"config", "--worktree", key, value},
+	} {
+		if _, err := git(r.Dir, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func TestStateOverriddenAboveGlobal(t *testing.T) {
@@ -179,10 +200,11 @@ func TestHeadMessage(t *testing.T) {
 	}
 }
 
-func TestEnable(t *testing.T) {
-	d := mkrepo(t)
+func TestEnableClearsAnOverrideAndAnOptOut(t *testing.T) {
 	hooks := t.TempDir()
-	r, _ := Open(d)
+	globalHooksPath(t, hooks)
+	r, _ := Open(mkrepo(t))
+	r.GitConfigSet("core.hooksPath", t.TempDir())
 	r.GitConfigSet("commit-gate.disabled", "true")
 	if err := r.Enable(hooks); err != nil {
 		t.Fatalf("Enable: %v", err)
@@ -190,33 +212,105 @@ func TestEnable(t *testing.T) {
 	if s := r.State(hooks); s != StateEnabled {
 		t.Fatalf("after Enable: %v", s)
 	}
-	if info, err := os.Stat(r.GateDir()); err != nil || !info.IsDir() {
-		t.Fatalf("gate dir must exist: %v", err)
+	if v, err := git(r.Dir, "config", "--local", "--get", "core.hooksPath"); err == nil {
+		t.Fatalf("the repo-local core.hooksPath must be cleared, got %q", v)
 	}
-	if err := os.WriteFile(r.ManifestPath(), []byte("abc  feat: keep\n"), 0o644); err != nil {
-		t.Fatal(err)
+}
+
+func TestEnableRefusesWithoutTheGlobalGate(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, "")
+	r, _ := Open(mkrepo(t))
+	r.GitConfigSet("core.hooksPath", hooks) // enabled repo by repo
+	err := r.Enable(hooks)
+	if err == nil || !strings.Contains(err.Error(), "git config --global core.hooksPath "+hooks) {
+		t.Fatalf("Enable must refuse, naming the fix: %v", err)
 	}
-	if err := r.Enable(hooks); err != nil {
-		t.Fatalf("re-Enable: %v", err)
+	if v, _ := git(r.Dir, "config", "--local", "--get", "core.hooksPath"); v != hooks {
+		t.Fatalf("a refused Enable must change nothing, core.hooksPath=%q", v)
 	}
-	if b, _ := os.ReadFile(r.ManifestPath()); string(b) != "abc  feat: keep\n" {
-		t.Fatalf("re-Enable must keep the manifest, got %q", b)
+}
+
+// An override Enable can't clear, here one from the command scope, leaves
+// the repo ungated: Enable reports it rather than claiming success.
+func TestEnableReportsAnOverrideItCannotClear(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, hooks)
+	elsewhere := t.TempDir()
+	commandHooksPath(t, elsewhere)
+	r, _ := Open(mkrepo(t))
+	err := r.Enable(hooks)
+	if want := `core.hooksPath is still "` + elsewhere + `", from command config`; err == nil || err.Error() != want {
+		t.Fatalf("Enable must name the remaining override:\ngot:  %v\nwant: %s", err, want)
+	}
+}
+
+func TestEnableQuotesAnEmptyOverride(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, hooks)
+	commandHooksPath(t, "")
+	r, _ := Open(mkrepo(t))
+	err := r.Enable(hooks)
+	if want := `core.hooksPath is still "", from command config`; err == nil || err.Error() != want {
+		t.Fatalf("got:  %v\nwant: %s", err, want)
+	}
+}
+
+func TestEnableNamesTheClearingCommandForAWorktreeOverride(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, hooks)
+	r, _ := Open(mkrepo(t))
+	elsewhere := t.TempDir()
+	worktreeConfig(t, r, "core.hooksPath", elsewhere)
+	err := r.Enable(hooks)
+	want := `core.hooksPath is still "` + elsewhere + `", from worktree config; to clear it: git config --worktree --unset core.hooksPath`
+	if err == nil || err.Error() != want {
+		t.Fatalf("got:  %v\nwant: %s", err, want)
+	}
+}
+
+// An opt-out Enable can't clear leaves the repo opted out: Enable reports
+// it rather than claiming success.
+func TestEnableReportsAnOptOutItCannotClear(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, hooks)
+	commandConfig(t, "commit-gate.disabled", "true")
+	r, _ := Open(mkrepo(t))
+	err := r.Enable(hooks)
+	if want := "commit-gate.disabled is still true, from command config"; err == nil || err.Error() != want {
+		t.Fatalf("got:  %v\nwant: %s", err, want)
+	}
+}
+
+func TestEnableNamesTheClearingCommandForAWorktreeOptOut(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, hooks)
+	r, _ := Open(mkrepo(t))
+	worktreeConfig(t, r, "commit-gate.disabled", "true")
+	err := r.Enable(hooks)
+	want := "commit-gate.disabled is still true, from worktree config; to clear it: git config --worktree --unset commit-gate.disabled"
+	if err == nil || err.Error() != want {
+		t.Fatalf("got:  %v\nwant: %s", err, want)
+	}
+}
+
+func TestEnableReturnsAFailedRead(t *testing.T) {
+	hooks := t.TempDir()
+	globalHooksPath(t, hooks)
+	r, _ := Open(mkrepo(t))
+	commandHooksPath(t, "~nosuchuser-commit-gate/hooks") // git init would fail on it
+	err := r.Enable(hooks)
+	if err == nil || !strings.Contains(err.Error(), "nosuchuser-commit-gate") {
+		t.Fatalf("Enable must return HooksPath's error: %v", err)
 	}
 }
 
 func TestEnableFailures(t *testing.T) {
-	d := mkrepo(t)
-	r, _ := Open(d)
+	r, _ := Open(mkrepo(t))
 	if err := r.Enable(""); err == nil {
 		t.Fatal("empty hooks dir must error")
 	}
 	if s := r.State(""); s != StateUngated {
 		t.Fatalf("failed Enable must leave the repo ungated: %v", s)
-	}
-	if err := os.WriteFile(r.GateDir(), nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.Enable(t.TempDir()); err == nil {
-		t.Fatal("gate dir blocked by a file must error")
 	}
 }

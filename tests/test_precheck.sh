@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
 PC="$DIR/../precheck"; GH="$(cd "$DIR/../hooks" && pwd)"; BIN="$DIR/../bin"
 
 run() {  # $1=command, $2=cwd (optional)
@@ -15,7 +15,7 @@ silent()  { out="$(run "$1" "${2:-}")"; [ -z "$out" ]; }
 reminds() { out="$(run "$1" "${2:-}")"; printf '%s' "$out" | grep -q '"permissionDecision":"allow"'; }
 
 gated="$(mkrepo)"; ( cd "$gated" && "$BIN/gate-enable" >/dev/null )
-ungated="$(mkrepo)"
+ungated="$(mkrepo)"; git -C "$ungated" config commit-gate.disabled true
 
 # check 1: --no-verify / -n, ANDed with a git-commit invocation
 denies "git commit --no-verify -m x" || fail 'no-verify'

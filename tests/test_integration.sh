@@ -1,11 +1,10 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
 BIN="$DIR/../bin"; export PATH="$BIN:$PATH"
 
 repo="$(mkrepo)"; cd "$repo"
-"$DIR/../bin/gate-status" | grep -q '^commit-gate: ungated' || fail 'should start ungated'
-gate-enable >/dev/null
+"$DIR/../bin/gate-status" | grep -q '^commit-gate: enabled$' || fail 'should start enabled'
 
 echo a > a.txt; git add a.txt
 if git commit -m "feat: add a" -m "Co-Authored-By: X <x@x>" >/dev/null 2>&1; then fail 'unapproved commit succeeded'; fi
