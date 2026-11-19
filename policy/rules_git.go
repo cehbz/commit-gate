@@ -92,7 +92,9 @@ func parseGitConfig(inv shellscan.Invocation) (configOp, bool) {
 			skip = false // consumed a value flag's value
 			continue
 		}
-		if a.Literal && strings.HasPrefix(a.Text, "-") {
+		// A word starting with "-" is a flag even when not literal, as in
+		// --file=$HOME/.gitconfig: read as the key, it would hide the real one.
+		if strings.HasPrefix(a.Text, "-") {
 			mode(a.Text)
 			skip = configValueFlags[a.Text]
 			continue

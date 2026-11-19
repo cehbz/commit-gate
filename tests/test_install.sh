@@ -32,5 +32,11 @@ run_install
 assert_eq "$(git config --global --get core.hooksPath)" "$other" 'install.sh must leave a foreign global core.hooksPath'
 grep -q "core.hooksPath is $other, not the gate; left as it is" "$tmp/out" || fail 'a foreign global core.hooksPath should be reported'
 grep -q "git config --global core.hooksPath $tmp/libexec/hooks" "$tmp/out" || fail 'the report should carry the fix'
+# A global core.hooksPath set in a file the global config includes is set.
+printf '[core]\n\thooksPath = %s\n' "$tmp/libexec/hooks" > "$tmp/hooks.inc"
+printf '[include]\n\tpath = %s\n' "$tmp/hooks.inc" > "$GIT_CONFIG_GLOBAL"
+run_install
+grep -q 'already names the gate' "$tmp/out" || fail 'an included global core.hooksPath naming the gate should read as set'
+[ -z "$(git config --global --no-includes --get-all core.hooksPath)" ] || fail 'install.sh must not add a second core.hooksPath beside an included one'
 rm -rf "$elsewhere"
 echo "OK: test_install"

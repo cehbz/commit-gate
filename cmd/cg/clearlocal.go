@@ -28,44 +28,65 @@ var skipNames = map[string]bool{"node_modules": true, ".cache": true, ".Trash": 
 
 // findRepos returns the directory holding each entry named .git under root
 // (a directory, or a file in submodules and linked worktrees), in walk
-// order. It follows no symlinks, doesn't descend into .git, and skips
-// node_modules, .cache and .Trash anywhere and Library and go/pkg directly
-// under root. Unreadable directories are skipped.
-func findRepos(root string) []string {
-	skipPaths := map[string]bool{filepath.Join(root, "Library"): true, filepath.Join(root, "go", "pkg"): true}
-	var dirs []string
-	filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+// order, and every error the walk met: a root that doesn't exist or isn't
+// a directory, and each directory it couldn't read. A root that is a
+// symlink is resolved and its repos reported under the root as given;
+// below the root it follows no symlinks. It doesn't descend into .git, and
+// skips node_modules, .cache and .Trash anywhere and Library and go/pkg
+// directly under root.
+func findRepos(root string) ([]string, []error) {
+	walkRoot := root
+	if fi, err := os.Lstat(root); err == nil && fi.Mode()&fs.ModeSymlink != 0 {
+		r, err := filepath.EvalSymlinks(root)
 		if err != nil {
+			return nil, []error{err}
+		}
+		walkRoot = r
+	}
+	skipPaths := map[string]bool{filepath.Join(walkRoot, "Library"): true, filepath.Join(walkRoot, "go", "pkg"): true}
+	var dirs []string
+	var errs []error
+	filepath.WalkDir(walkRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			errs = append(errs, err)
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
 			}
 			return nil
 		}
+		if path == walkRoot && !d.IsDir() {
+			errs = append(errs, fmt.Errorf("%s: not a directory", root))
+			return nil
+		}
 		if d.Name() == ".git" {
-			dirs = append(dirs, filepath.Dir(path))
+			dir := filepath.Dir(path)
+			if walkRoot != root { // report it under the symlink given
+				rel, _ := filepath.Rel(walkRoot, dir)
+				dir = filepath.Join(root, rel)
+			}
+			dirs = append(dirs, dir)
 			if d.IsDir() {
 				return fs.SkipDir
 			}
 			return nil
 		}
-		if d.IsDir() && path != root && (skipNames[d.Name()] || skipPaths[path]) {
+		if d.IsDir() && path != walkRoot && (skipNames[d.Name()] || skipPaths[path]) {
 			return fs.SkipDir
 		}
 		return nil
 	})
-	return dirs
+	return dirs, errs
 }
 
 // cmdClearLocalHookspath implements `commit-gate clear-local-hookspath
-// [root...]` (default $HOME). It refuses, changing nothing, while the
-// global core.hooksPath is not the gate: removing a repo-local gate path
-// would then ungate the repo. An empty repo-local value names no gate
-// directory, so it is reported as foreign, quoted.
+// [root...]` (default $HOME). It leaves a repo's gate path, as an error,
+// while the global core.hooksPath git reads in that repo is not the gate:
+// removing it would then ungate the repo. A relative value is resolved against the
+// repo's work tree, as git resolves it. An empty value names no gate
+// directory, so it is reported as foreign, quoted. Every error it meets
+// goes to stderr and into the summary, and any makes it exit 1.
 func cmdClearLocalHookspath(args []string) int {
 	hooks := liveHooksDir()
-	if p := gatestate.GlobalGateProblem(hooks); p != "" {
-		return dieApprove("%s; set it first, or this would ungate repos: git config --global core.hooksPath %s", p, hooks)
-	}
 	roots := args
 	if len(roots) == 0 {
 		home, err := os.UserHomeDir()
@@ -75,40 +96,68 @@ func cmdClearLocalHookspath(args []string) int {
 		roots = []string{home}
 	}
 	seen := map[string]bool{}
-	removed, foreign := 0, 0
+	removed, foreign, failed := 0, 0, 0
+	fail := func(err error) {
+		fmt.Fprintf(os.Stderr, "commit-gate: %s\n", err)
+		failed++
+	}
 	for _, root := range roots {
-		for _, dir := range findRepos(root) {
+		dirs, errs := findRepos(root)
+		for _, err := range errs {
+			fail(err)
+		}
+		for _, dir := range dirs {
 			repo, err := gatestate.Open(dir)
-			if err != nil || seen[repo.Common] {
+			if err != nil {
+				fail(fmt.Errorf("%s: %w", dir, err))
+				continue
+			}
+			if seen[repo.Common] {
 				continue
 			}
 			seen[repo.Common] = true
 			hp, scope, ok, err := repo.HooksPath()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "commit-gate: %s: %s\n", dir, err)
+				fail(fmt.Errorf("%s: %w", dir, err))
 				continue
 			}
 			if !ok || scope != "local" {
 				continue
 			}
-			if hp == "" {
-				fmt.Printf("foreign %s: core.hooksPath is %q (left)\n", dir, hp)
+			// dir holds the .git entry: it is the work tree's top.
+			resolved := hp
+			if hp != "" && !filepath.IsAbs(hp) {
+				resolved = filepath.Join(dir, hp)
+			}
+			if hp == "" || !isGateDir(resolved, hooks) {
+				shown := hp
+				if hp == "" {
+					shown = `""`
+				}
+				fmt.Printf("foreign %s: core.hooksPath is %s (left)\n", dir, shown)
 				foreign++
 				continue
 			}
-			if !isGateDir(hp, hooks) {
-				fmt.Printf("foreign %s: core.hooksPath is %s (left)\n", dir, hp)
-				foreign++
+			if p := gatestate.GlobalGateProblem(dir, hooks); p != "" {
+				fail(fmt.Errorf("%s: %s; its gate path is left, or this would ungate it: %s", dir, p, gatestate.GlobalGateFix(dir, hooks)))
 				continue
 			}
 			if err := repo.GitConfigUnset("core.hooksPath"); err != nil {
-				fmt.Fprintf(os.Stderr, "commit-gate: %s: %s\n", dir, err)
+				fail(fmt.Errorf("%s: %w", dir, err))
 				continue
 			}
 			fmt.Printf("removed %s: core.hooksPath was %s\n", dir, hp)
 			removed++
 		}
 	}
-	fmt.Printf("commit-gate: %d removed, %d foreign\n", removed, foreign)
-	return 0
+	if failed == 0 {
+		fmt.Printf("commit-gate: %d removed, %d foreign\n", removed, foreign)
+		return 0
+	}
+	noun := "errors"
+	if failed == 1 {
+		noun = "error"
+	}
+	fmt.Printf("commit-gate: %d removed, %d foreign, %d %s\n", removed, foreign, failed, noun)
+	return 1
 }

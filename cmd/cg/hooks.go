@@ -1,13 +1,12 @@
-// hooks.go implements the two enforcing git hook subcommands: commit-msg and
-// pre-push. These are invoked by git itself (via core.hooksPath pointing at
-// this binary's hooks/ directory), not by the Claude Code harness. That
-// directory holds every hook git runs: these two enforce, and the rest pass
-// through to the repo's own (passthrough.go). Behavior is a direct
-// transcription of hooks/commit-msg and hooks/pre-push (see lib/common for
-// chain_local/gate_dir/is_disabled).
+// hooks.go implements the two enforcing git hooks, commit-msg and pre-push,
+// and chainLocal, which runs a repo's own hook of the same name first. git
+// runs them from the gate's hook directory, which the global core.hooksPath
+// names; every other hook there passes through to the repo's own
+// (passthrough.go).
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,18 +33,27 @@ func localHook(repo *gatestate.Repo, name string) (string, bool) {
 // inheriting stdio, with Dir set to the repo's working directory. It
 // returns -1 to mean "continue" (no local hook present, or the local hook
 // ran and exited 0), or the child's exit code to propagate immediately: a
-// hook killed by a signal is 128+signal, as the shell reports it.
+// hook killed by a signal is 128+signal, as the shell reports it. A hook
+// the kernel won't exec (ENOEXEC: no #! line) runs under /bin/sh, as git
+// runs it.
 func chainLocal(repo *gatestate.Repo, name string, args []string) int {
 	path, ok := localHook(repo, name)
 	if !ok {
 		return -1
 	}
-	cmd := exec.Command(path, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Dir = repo.Dir
-	if err := cmd.Run(); err != nil {
+	run := func(prog string, argv ...string) error {
+		cmd := exec.Command(prog, argv...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Dir = repo.Dir
+		return cmd.Run()
+	}
+	err := run(path, args...)
+	if errors.Is(err, syscall.ENOEXEC) {
+		err = run("/bin/sh", append([]string{path}, args...)...)
+	}
+	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			if ws, ok := ee.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 				return 128 + int(ws.Signal())

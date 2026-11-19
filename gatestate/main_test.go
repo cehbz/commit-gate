@@ -3,12 +3,15 @@ package gatestate
 import (
 	"os"
 	"testing"
+
+	"github.com/cehbz/commit-gate/internal/testenv"
 )
 
 // TestMain points git at an empty global config, so these tests never read
 // the user's ~/.gitconfig (whose core.hooksPath would run the live gate on
 // their commits).
 func TestMain(m *testing.M) {
+	testenv.ClearCallerRepo()
 	f, err := os.CreateTemp("", "gitconfig")
 	if err != nil {
 		panic(err)

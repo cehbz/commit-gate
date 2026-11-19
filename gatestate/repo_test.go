@@ -171,16 +171,16 @@ func TestHooksPathReadFailure(t *testing.T) {
 func TestGlobalGateProblem(t *testing.T) {
 	hooks := t.TempDir()
 	globalHooksPath(t, "")
-	if p := GlobalGateProblem(hooks); p != "the global core.hooksPath is unset" {
+	if p := GlobalGateProblem("", hooks); p != "the global core.hooksPath is unset" {
 		t.Fatalf("unset: %q", p)
 	}
 	other := t.TempDir()
 	globalHooksPath(t, other)
-	if p := GlobalGateProblem(hooks); p != "the global core.hooksPath is "+other+", not the gate" {
+	if p := GlobalGateProblem("", hooks); p != "the global core.hooksPath is "+other+", not the gate" {
 		t.Fatalf("foreign: %q", p)
 	}
 	globalHooksPath(t, hooks)
-	if p := GlobalGateProblem(hooks); p != "" {
+	if p := GlobalGateProblem("", hooks); p != "" {
 		t.Fatalf("the gate: %q", p)
 	}
 }
@@ -312,5 +312,120 @@ func TestEnableFailures(t *testing.T) {
 	}
 	if s := r.State(""); s != StateUngated {
 		t.Fatalf("failed Enable must leave the repo ungated: %v", s)
+	}
+}
+
+// A global core.hooksPath set in a file the global config includes is set,
+// as git reads it.
+func TestGlobalGateProblemReadsIncludes(t *testing.T) {
+	hooks := t.TempDir()
+	dir := t.TempDir()
+	inc := filepath.Join(dir, "hooks.inc")
+	if err := os.WriteFile(inc, []byte("[core]\n\thooksPath = "+hooks+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := filepath.Join(dir, "gitconfig")
+	if err := os.WriteFile(f, []byte("[include]\n\tpath = "+inc+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", f)
+	if p := GlobalGateProblem("", hooks); p != "" {
+		t.Fatalf("an included global core.hooksPath naming the gate: %q", p)
+	}
+}
+
+// A global core.hooksPath set by an includeIf "gitdir:" applies in the repos
+// it matches: Enable reads it there.
+func TestEnableReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+	hooks := t.TempDir()
+	d := mkrepo(t)
+	r, err := Open(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	inc := filepath.Join(dir, "hooks.inc")
+	if err := os.WriteFile(inc, []byte("[core]\n\thooksPath = "+hooks+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := filepath.Join(dir, "gitconfig")
+	cfg := "[includeIf \"gitdir:" + filepath.Dir(r.Common) + "/\"]\n\tpath = " + inc + "\n"
+	if err := os.WriteFile(f, []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", f)
+	if err := r.Enable(hooks); err != nil {
+		t.Fatalf("Enable: %v", err)
+	}
+	if s := r.State(hooks); s != StateEnabled {
+		t.Fatalf("State = %v", s)
+	}
+}
+
+// globalConfigWith runs the test with a global git config of body, written
+// to dir/gitconfig; files it includes go in dir beside it.
+func globalConfigWith(t *testing.T, dir, body string) {
+	t.Helper()
+	f := filepath.Join(dir, "gitconfig")
+	if err := os.WriteFile(f, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", f)
+}
+
+func writeInclude(t *testing.T, path, hooksPath string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("[core]\n\thooksPath = \""+hooksPath+"\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// configQuote quotes s as a git config value.
+func configQuote(s string) string {
+	return `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(s) + `"`
+}
+
+// GlobalGateFix names the file that sets the global core.hooksPath git
+// reads: an include overriding a top-level value, the global config when a
+// top-level value comes after the include, the include when it sets an
+// empty value.
+func TestGlobalGateFixNamesTheFileThatSetsTheValue(t *testing.T) {
+	hooks := t.TempDir()
+	dir := t.TempDir()
+	inc := filepath.Join(dir, "hooks.inc")
+	writeInclude(t, inc, "/elsewhere")
+
+	globalConfigWith(t, dir, "[core]\n\thooksPath = /top\n[include]\n\tpath = "+inc+"\n")
+	if got, want := GlobalGateFix("", hooks), "git config --file "+inc+" core.hooksPath "+hooks; got != want {
+		t.Fatalf("include after a top-level value:\ngot:  %q\nwant: %q", got, want)
+	}
+	globalConfigWith(t, dir, "[include]\n\tpath = "+inc+"\n[core]\n\thooksPath = /top\n")
+	if got, want := GlobalGateFix("", hooks), "git config --global core.hooksPath "+hooks; got != want {
+		t.Fatalf("top-level value after the include:\ngot:  %q\nwant: %q", got, want)
+	}
+	writeInclude(t, inc, "")
+	globalConfigWith(t, dir, "[core]\n\thooksPath = /top\n[include]\n\tpath = "+inc+"\n")
+	if got, want := GlobalGateFix("", hooks), "git config --file "+inc+" core.hooksPath "+hooks; got != want {
+		t.Fatalf("an empty value from the include:\ngot:  %q\nwant: %q", got, want)
+	}
+}
+
+// A path holding a space or a quote is shell-quoted, so the remedy pastes.
+func TestGlobalGateFixQuotesPaths(t *testing.T) {
+	odd := filepath.Join(t.TempDir(), `a b"c`)
+	if err := os.Mkdir(odd, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	hooks := filepath.Join(odd, "hooks")
+	inc := filepath.Join(odd, "hooks.inc")
+	writeInclude(t, inc, "/elsewhere")
+	globalConfigWith(t, t.TempDir(), "[include]\n\tpath = "+configQuote(inc)+"\n")
+	q := func(s string) string { return "'" + s + "'" }
+	if got, want := GlobalGateFix("", hooks), "git config --file "+q(inc)+" core.hooksPath "+q(hooks); got != want {
+		t.Fatalf("got:  %s\nwant: %s", got, want)
+	}
+	odd2 := filepath.Join(t.TempDir(), "it's")
+	if got, want := GlobalGateFix("", filepath.Join(odd2, "hooks")), `core.hooksPath '`+strings.ReplaceAll(odd2, "'", `'\''`)+`/hooks'`; !strings.HasSuffix(got, want) {
+		t.Fatalf("got:  %s\nwant suffix: %s", got, want)
 	}
 }

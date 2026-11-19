@@ -101,3 +101,31 @@ func TestR2R3ConfigSubcommands(t *testing.T) {
 	wantSilent(t, "git config get commit-gate.disabled")
 	wantSilent(t, "git config list --global")
 }
+
+// A --file or -f naming the global git config, in any spelling of the path
+// or the flag, is the global scope: the forms that drop or redirect
+// core.hooksPath there are denied, and reads stay allowed. So is one naming
+// .git/config.
+func TestR3FileFlagNamingAProtectedConfig(t *testing.T) {
+	for _, f := range []string{
+		"--file=$HOME/.gitconfig", `"--file=$HOME/.gitconfig"`, "--file=${HOME}/.gitconfig",
+		"--file $HOME/.gitconfig", "--file ${HOME}/.gitconfig", "--file ~/.gitconfig",
+		"--file=/home/u/.gitconfig", "-f $HOME/.gitconfig", "-f$HOME/.gitconfig", "-f ~/.gitconfig",
+		"--file=$XDG_CONFIG_HOME/git/config", "--file=/home/u/.config/git/config",
+		"-f /home/u/.config/git/config", "--file=.git/config", "-f .git/config", "-f /r/.git/config",
+	} {
+		wantDeny(t, "git config "+f+" --unset core.hooksPath", MsgHooksPath)
+		wantDeny(t, "git config "+f+" --unset-all core.hooksPath", MsgHooksPath)
+		wantDeny(t, "git config "+f+" --remove-section core", MsgHooksPath)
+		wantDeny(t, "git config "+f+" --rename-section core old", MsgHooksPath)
+		wantDeny(t, "git config "+f+" core.hooksPath /evil", MsgHooksPath)
+		wantDeny(t, "git config unset "+f+" core.hooksPath", MsgHooksPath)
+		wantDeny(t, "git config remove-section "+f+" core", MsgHooksPath)
+		wantDeny(t, "git config set "+f+" core.hooksPath /evil", MsgHooksPath)
+		wantDeny(t, "git config "+f+" commit-gate.disabled true", MsgDisabled)
+		wantSilent(t, "git config "+f+" --get core.hooksPath")
+		wantSilent(t, "git config get "+f+" core.hooksPath")
+		wantSilent(t, "git config "+f+" --list")
+		wantSilent(t, "git config "+f+" core.hooksPath /inst/hooks") // the enable form
+	}
+}

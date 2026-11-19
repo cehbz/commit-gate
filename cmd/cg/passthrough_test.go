@@ -336,3 +336,40 @@ func TestAPassThroughFindsTheRepoHookWithoutRunningGit(t *testing.T) {
 		})
 	}
 }
+
+// writeBareHook installs an executable hook with no #! line, which git runs
+// under /bin/sh when exec fails with ENOEXEC.
+func writeBareHook(t *testing.T, repo, name, script string) {
+	t.Helper()
+	dir := filepath.Join(gitIn(t, repo, "rev-parse", "--absolute-git-dir"), "hooks")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(script+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestARepoHookWithNoShebangRunsUnderShAsAPassThrough(t *testing.T) {
+	repo := mkrepoT(t)
+	marker := filepath.Join(t.TempDir(), "ran")
+	writeBareHook(t, repo, "pre-commit", "echo \"$0\" > '"+marker+"'")
+	if errStr, code := approvedCommit(t, repo, "feat: bare pre-commit"); code != 0 {
+		t.Fatalf("approved commit: code=%d stderr=%q", code, errStr)
+	}
+	if b, err := os.ReadFile(marker); err != nil || !strings.HasSuffix(strings.TrimSpace(string(b)), "hooks/pre-commit") {
+		t.Fatalf("the repo's own pre-commit with no #! line did not run under sh: %q %v", b, err)
+	}
+}
+
+func TestARepoCommitMsgHookWithNoShebangRunsUnderSh(t *testing.T) {
+	repo := mkrepoT(t)
+	writeBareHook(t, repo, "commit-msg", "grep -q 'feat:' \"$1\" || { echo 'bare: refused' >&2; exit 1; }")
+	errStr, code := approvedCommit(t, repo, "chore: refused by the repo")
+	if code == 0 || !strings.Contains(errStr, "bare: refused") {
+		t.Fatalf("the repo's commit-msg refusal must abort: code=%d stderr=%q", code, errStr)
+	}
+	if errStr, code := approvedCommit(t, repo, "feat: admitted by the repo"); code != 0 {
+		t.Fatalf("the repo's commit-msg must get the message file: code=%d stderr=%q", code, errStr)
+	}
+}
