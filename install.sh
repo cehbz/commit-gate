@@ -1,6 +1,7 @@
 #!/bin/bash
-# Build the commit-gate Go binary, install its git-hook and PATH symlinks, and
-# merge its PreToolUse/SessionStart hooks into Claude Code's settings.json.
+# Build the commit-gate Go binary, install its git-hook and PATH symlinks,
+# point the global core.hooksPath at the gate, and merge its PreToolUse and
+# SessionStart hooks into Claude Code's settings.json.
 # Idempotent: safe to re-run after a pull.
 set -euo pipefail
 
@@ -32,8 +33,21 @@ for name in approve approve-push clear-approvals gate-disable gate-enable gate-s
   echo "Linked: $BIN_DIR/$name"
 done
 
+# Gate every repo: the global core.hooksPath names the gate's hooks. One
+# naming another directory is reported and left as it is.
+hooks="$(cd "$LIBEXEC/hooks" && pwd -P)"
+current="$(git config --global --type=path --get core.hooksPath || true)"
+if [ -z "$current" ]; then
+  git config --global core.hooksPath "$LIBEXEC/hooks"
+  echo "Set global core.hooksPath: $LIBEXEC/hooks"
+elif [ "$(cd "$current" 2>/dev/null && pwd -P)" = "$hooks" ]; then
+  echo "Global core.hooksPath already names the gate: $current"
+else
+  echo "commit-gate: the global core.hooksPath is $current, not the gate; left as it is. To gate every repo: git config --global core.hooksPath $LIBEXEC/hooks" >&2
+fi
+
 # Merge the two hooks into settings.json (idempotent), pointing at the binary's
-# precheck/sessioncheck symlinks. core.hooksPath and gate-enable point at
+# precheck/sessioncheck symlinks. The global core.hooksPath points at
 # "$LIBEXEC/hooks"; the binary resolves its own install dir via os.Executable().
 settings="$CLAUDE_DIR/settings.json"
 precheck="$LIBEXEC/precheck"
