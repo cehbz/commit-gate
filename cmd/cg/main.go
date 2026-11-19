@@ -23,7 +23,7 @@ func dispatch(args []string) int {
 	rest := args[1:]
 	if name == "commit-gate" {
 		if len(rest) == 0 {
-			fmt.Fprintln(os.Stderr, "usage: commit-gate <precheck|sessioncheck|approve|approve-push|gate-enable|gate-disable|gate-status|clear-approvals|hook-names|hook> ...")
+			fmt.Fprintln(os.Stderr, "usage: commit-gate <precheck|sessioncheck|approve|approve-push|gate-enable|gate-disable|gate-status|clear-approvals|clear-local-hookspath|hook-names|hook> ...")
 			return 2
 		}
 		name, rest = rest[0], rest[1:]
@@ -58,6 +58,8 @@ func dispatch(args []string) int {
 		return cmdGateStatus(rest)
 	case "clear-approvals":
 		return cmdClearApprovals(rest)
+	case "clear-local-hookspath":
+		return cmdClearLocalHookspath(rest)
 	case "hook-names":
 		return cmdHookNames()
 	default:
