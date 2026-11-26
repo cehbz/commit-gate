@@ -78,9 +78,9 @@ precheck_no_longer_denies_the_old_command_names() {
   silent "approve-push --yes" "$ungated" || fail 'old approve-push still denied'
   silent "gate-disable" "$ungated" || fail 'old gate-disable still denied'
 }
-pending precheck_denies_commit_gate_approve_approve_push_and_disable
-pending precheck_refuses_a_computed_commit_gate_command_word
-pending precheck_no_longer_denies_the_old_command_names
+precheck_denies_commit_gate_approve_approve_push_and_disable
+precheck_refuses_a_computed_commit_gate_command_word
+precheck_no_longer_denies_the_old_command_names
 silent "commit-gate enable" "$ungated" || fail 'enable false-denied'
 silent "commit-gate status" "$ungated" || fail 'status false-denied'
 silent "commit-gate clear-approvals" "$ungated" || fail 'clear-approvals false-denied'

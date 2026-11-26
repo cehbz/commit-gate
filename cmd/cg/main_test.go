@@ -90,7 +90,6 @@ func mkrepoT(t *testing.T) string {
 }
 
 func TestPrecheckDenyAndSilentAndExit0(t *testing.T) {
-	pending(t)
 	out, _, code := run(t, `{"tool_name":"Bash","tool_input":{"command":"commit-gate approve"}}`, "precheck")
 	if code != 0 || !strings.Contains(out, `"permissionDecision":"deny"`) {
 		t.Fatalf("deny: code=%d out=%q", code, out)

@@ -30,7 +30,6 @@ func TestReminderNamesThePerSessionBatchFile(t *testing.T) {
 }
 
 func TestReminderHandsOverTheCommitGateCommands(t *testing.T) {
-	pending(t)
 	for _, want := range []string{"`! commit-gate approve -F /tmp/cg-batch-<repo>-<sid>`", "commit-gate approve-push"} {
 		if !strings.Contains(MsgReminder, want) {
 			t.Errorf("reminder should name %q: %q", want, MsgReminder)
@@ -44,7 +43,6 @@ func TestReminderHandsOverTheCommitGateCommands(t *testing.T) {
 }
 
 func TestTheHumanOnlyDenialNamesTheCommitGateCommands(t *testing.T) {
-	pending(t)
 	for _, want := range []string{"commit-gate approve", "disable"} {
 		if !strings.Contains(MsgHumanOnly, want) {
 			t.Errorf("denial should name %q: %q", want, MsgHumanOnly)

@@ -3,7 +3,6 @@ package policy
 import "testing"
 
 func TestPrecheckDeniesCommitGateApproveApprovePushAndDisable(t *testing.T) {
-	pending(t)
 	wantDeny(t, "commit-gate approve --yes -F /tmp/x", MsgHumanOnly)
 	wantDeny(t, "commit-gate approve", MsgHumanOnly)
 	wantDeny(t, "commit-gate approve-push --yes", MsgHumanOnly)
@@ -14,7 +13,6 @@ func TestPrecheckDeniesCommitGateApproveApprovePushAndDisable(t *testing.T) {
 }
 
 func TestPrecheckDeniesAHumanOnlyCommandAnywhereInTheShellCommand(t *testing.T) {
-	pending(t)
 	wantDeny(t, "echo hi && commit-gate approve", MsgHumanOnly)
 	wantDeny(t, "commit-gate approve; echo done", MsgHumanOnly)
 	wantDeny(t, "foo&&commit-gate approve", MsgHumanOnly)
@@ -28,7 +26,6 @@ func TestPrecheckDeniesAHumanOnlyCommandAnywhereInTheShellCommand(t *testing.T) 
 }
 
 func TestPrecheckDeniesCommitGateNamedByItsPath(t *testing.T) {
-	pending(t)
 	wantDeny(t, "/Users/x/.local/bin/commit-gate approve --yes", MsgHumanOnly)
 	wantDeny(t, "~/.local/libexec/commit-gate/commit-gate approve-push", MsgHumanOnly)
 	wantDeny(t, "~/.local/bin/commit-gate disable", MsgHumanOnly)
@@ -36,7 +33,6 @@ func TestPrecheckDeniesCommitGateNamedByItsPath(t *testing.T) {
 }
 
 func TestPrecheckRefusesAComputedCommitGateCommandWord(t *testing.T) {
-	pending(t)
 	wantDeny(t, `commit-gate "$c"`, MsgUnresolvable)
 	wantDeny(t, `commit-gate $c --yes`, MsgUnresolvable)
 	wantDeny(t, `commit-gate $(echo approve)`, MsgUnresolvable)
@@ -70,7 +66,6 @@ func TestPrecheckLeavesCommitGateCommandWordsInDataAlone(t *testing.T) {
 // The old names are no longer commands: the precheck judges them as any
 // other unknown command.
 func TestPrecheckNoLongerDeniesTheOldCommandNames(t *testing.T) {
-	pending(t)
 	wantSilent(t, "approve --yes -F /tmp/x")
 	wantSilent(t, "approve-push --yes")
 	wantSilent(t, "gate-disable")
