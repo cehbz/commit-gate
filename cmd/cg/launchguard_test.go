@@ -89,7 +89,7 @@ func TestApprovePushRefusesWhenShellLaunchAlsoRunsRm(t *testing.T) {
 	if code == 0 {
 		t.Fatalf("want non-zero exit, got 0; output=%q", out)
 	}
-	want := "approve-push refuses to run in a command that also runs rm — run commit-gate approve-push on its own"
+	want := "approve-push refuses to run in a command that also runs rm, exit — run commit-gate approve-push on its own"
 	if !strings.Contains(out, want) {
 		t.Fatalf("output must contain %q, got %q", want, out)
 	}
