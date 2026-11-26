@@ -85,7 +85,7 @@ func TestCommitMsgRejectsUnapprovedAndStagesPending(t *testing.T) {
 	want := "commit-gate: commit message not approved.\n" +
 		"  subject: " + subject + "\n" +
 		"  sha256 : " + hash + "\n" +
-		"Have the user run:  approve   (with this exact message)\n" +
+		"Have the user run:  approve -F <file holding this exact message>\n" +
 		"Human override:     git commit --no-verify\n"
 	if !strings.Contains(errStr, want) {
 		t.Fatalf("stderr mismatch:\ngot:  %q\nwant contains: %q", errStr, want)

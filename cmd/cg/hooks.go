@@ -115,7 +115,7 @@ func cmdCommitMsg(args []string) int {
 		"commit-gate: commit message not approved.\n"+
 			"  subject: %s\n"+
 			"  sha256 : %s\n"+
-			"Have the user run:  approve   (with this exact message)\n"+
+			"Have the user run:  approve -F <file holding this exact message>\n"+
 			"Human override:     git commit --no-verify\n",
 		subject, hash)
 	return 1
