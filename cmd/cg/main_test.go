@@ -173,7 +173,6 @@ func TestSessioncheckReportsAForeignGlobalHooksPathOutsideAnyRepo(t *testing.T) 
 }
 
 func TestSessioncheckReportsAnOverriddenRepo(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	elsewhere := t.TempDir()
@@ -227,7 +226,6 @@ func noGlobalGate(t *testing.T) {
 // An empty repo-local core.hooksPath is named as empty, as commit-gate status names
 // it, not printed as a blank.
 func TestSessioncheckNamesAnEmptyOverride(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	gitSetConfig(t, repo, "core.hooksPath", "")
@@ -245,7 +243,6 @@ func TestSessioncheckNamesAnEmptyOverride(t *testing.T) {
 // A worktree-scope override is not repo-local and commit-gate enable doesn't clear
 // it: the notice names its scope and the command that does.
 func TestSessioncheckNamesAWorktreeOverrideAndItsRemedy(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	elsewhere := t.TempDir()
@@ -266,7 +263,6 @@ func TestSessioncheckNamesAWorktreeOverrideAndItsRemedy(t *testing.T) {
 // A command-scope override comes from the session's environment (git -c
 // passed down, GIT_CONFIG_*): no config file holds it.
 func TestSessioncheckNamesACommandScopeOverride(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	elsewhere := t.TempDir()

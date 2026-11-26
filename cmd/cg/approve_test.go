@@ -150,7 +150,6 @@ func TestApproveDifferentRepoFindsNothing(t *testing.T) {
 // (f) an existing push token is invalidated (removed) with the exact
 // message when new approvals are recorded.
 func TestApprovePushTokenInvalidated(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 
@@ -178,7 +177,6 @@ func TestApprovePushTokenInvalidated(t *testing.T) {
 // (g) an ungated repo (no core.hooksPath set) dies with the exact
 // "repo not enabled" message, exit 1.
 func TestApproveUngatedRepoDies(t *testing.T) {
-	pending(t)
 	noGlobalGate(t)
 	repo := mkrepoT(t)
 
@@ -195,7 +193,6 @@ func TestApproveUngatedRepoDies(t *testing.T) {
 // Additional die-path coverage beyond the mandated (a)-(g): opted-out repo,
 // non-repo directory, and bad usage all die with the exact expected text.
 func TestApproveDisabledRepoDies(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 	if out, err := exec.Command("git", "-C", repo, "config", "commit-gate.disabled", "true").CombinedOutput(); err != nil {
@@ -224,7 +221,6 @@ func TestApproveNonRepoDies(t *testing.T) {
 }
 
 func TestApproveBadUsageDies(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 	_, errStr, code := runIn(t, repo, "", "commit-gate", "approve", "--bogus")

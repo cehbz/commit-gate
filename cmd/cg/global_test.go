@@ -153,7 +153,6 @@ func TestSessioncheckReadsAnIncludedGlobalHooksPath(t *testing.T) {
 }
 
 func TestStatusReadsAnIncludedGlobalHooksPath(t *testing.T) {
-	pending(t)
 	globalHooksPathViaInclude(t, liveHooks(t))
 	out, errStr, code := runIn(t, mkrepoT(t), "", "commit-gate", "status")
 	if code != 0 || !strings.HasPrefix(out, "commit-gate: enabled\n") {
@@ -162,7 +161,6 @@ func TestStatusReadsAnIncludedGlobalHooksPath(t *testing.T) {
 }
 
 func TestEnableReadsAnIncludedGlobalHooksPath(t *testing.T) {
-	pending(t)
 	globalHooksPathViaInclude(t, liveHooks(t))
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
@@ -203,7 +201,6 @@ func TestSessioncheckReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
 }
 
 func TestEnableReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
 	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
@@ -213,7 +210,6 @@ func TestEnableReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
 }
 
 func TestStatusReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
@@ -225,7 +221,6 @@ func TestStatusReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
 // sessioncheck, commit-gate enable and commit-gate status name the included file that
 // sets a foreign global core.hooksPath in their remedy.
 func TestTheGlobalGateRemedyNamesTheIncludedFileEverywhere(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, t.TempDir())
 	inc := filepath.Join(filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL")), "hooks.inc")

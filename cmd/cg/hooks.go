@@ -105,7 +105,7 @@ func cmdCommitMsg(args []string) int {
 		return 0
 	}
 
-	// Stage the rejected message for the human's bare `approve`.
+	// Stage the rejected message for the human's bare `commit-gate approve`.
 	if err := os.WriteFile(repo.PendingPath(), content, 0o644); err != nil {
 		fmt.Fprintf(os.Stderr, "commit-gate: %s\n", err)
 		return 1
@@ -115,7 +115,7 @@ func cmdCommitMsg(args []string) int {
 		"commit-gate: commit message not approved.\n"+
 			"  subject: %s\n"+
 			"  sha256 : %s\n"+
-			"Have the user run:  approve -F <file holding this exact message>\n"+
+			"Have the user run:  commit-gate approve -F <file holding this exact message>\n"+
 			"Human override:     git commit --no-verify\n",
 		subject, hash)
 	return 1
@@ -145,7 +145,7 @@ func cmdPrePush(args []string) int {
 
 	fmt.Fprint(os.Stderr,
 		"commit-gate: push not approved.\n"+
-			"Have the user run:  approve-push\n"+
+			"Have the user run:  commit-gate approve-push\n"+
 			"Human override:     git push --no-verify\n")
 	return 1
 }

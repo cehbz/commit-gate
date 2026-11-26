@@ -99,7 +99,6 @@ func TestApprovePushRefusesWhenShellLaunchAlsoRunsRm(t *testing.T) {
 }
 
 func TestDisableRefusesWhenPipedToTee(t *testing.T) {
-	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
 

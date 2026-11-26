@@ -67,7 +67,6 @@ func gitCommit(t *testing.T, repo string, args ...string) (string, string, int) 
 // (a) commit rejected: stderr carries the exact block, and cg-pending is
 // staged with the exact bytes git handed the hook.
 func TestCommitMsgRejectsUnapprovedAndStagesPending(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 	writeAndAdd(t, repo, "f", "x")
@@ -188,7 +187,6 @@ func TestCommitMsgLocalHookPropagatesExitCodeAndSkipsGate(t *testing.T) {
 // (e) pre-push blocks without a token and consumes one when present, invoking
 // the hooks/pre-push symlink directly with fake remote args/stdin.
 func TestPrePushBlocksWithoutTokenAndConsumesOne(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	r, err := gatestate.Open(repo)
 	if err != nil {

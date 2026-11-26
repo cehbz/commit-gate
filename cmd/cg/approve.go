@@ -1,12 +1,12 @@
-// approve.go implements the `approve` command: human approval of one or
+// approve.go implements `commit-gate approve`: human approval of one or
 // more pending commit messages.
 //
 // approve is human-only, run by pasting a `!` command an agent composed
 // (see policy.MsgHumanOnly / policy.MsgReminder). Before doing anything
 // else it runs launchguard.Check: if the shell command it was launched
-// from contains anything besides cd and commit-gate's own commands (e.g.
-// `approve && ./install.sh`), it refuses rather than let the rest of that
-// pasted chain run unreviewed. See package launchguard.
+// from runs anything besides cd and commit-gate (e.g. `commit-gate approve
+// && ./install.sh`), it refuses rather than let the rest of that pasted
+// chain run unreviewed. See package launchguard.
 package main
 
 import (
@@ -25,7 +25,7 @@ import (
 // approveSep is the literal line that separates messages in a -F batch file.
 const approveSep = "@@COMMIT-GATE-SEP@@"
 
-const approveUsage = "usage: approve [-F file | --plan plan.md] [--yes]   (bare: reads the preloaded pending file)"
+const approveUsage = "usage: commit-gate approve [-F file | --plan plan.md] [--yes]   (bare: reads the preloaded pending file)"
 
 // dieApprove prints "commit-gate: <formatted message>" to stderr and
 // returns the exit code callers should propagate.
@@ -34,13 +34,13 @@ func dieApprove(format string, a ...any) int {
 	return 1
 }
 
-// checkLaunchGuard is the shared entry point for approve, approve-push and
-// gate-disable: these are human-only commands the user runs by pasting a
-// `!` command an agent composed. A pasted chain that also runs other
-// things (`approve && ./install.sh && approve-push`) would get those other
-// things run without individual review. checkLaunchGuard refuses to let
-// cmdName proceed when the command it was launched from contains anything
-// other than cd and commit-gate's own commands, before any confirmation
+// checkLaunchGuard is the shared entry point for commit-gate approve,
+// approve-push and disable: these are human-only commands the user runs by
+// pasting a `!` command an agent composed. A pasted chain that also runs
+// other things (`commit-gate approve && ./install.sh`) would get those
+// other things run without individual review. checkLaunchGuard refuses to
+// let cmdName proceed when the command it was launched from runs anything
+// other than cd and commit-gate, before any confirmation
 // dialog or state change. It returns 0 to continue, or the exit code to
 // return immediately.
 func checkLaunchGuard(cmdName string) int {
@@ -55,7 +55,7 @@ func checkLaunchGuard(cmdName string) int {
 	return 0
 }
 
-// cmdApprove implements the `approve` command.
+// cmdApprove implements `commit-gate approve`.
 func cmdApprove(args []string) int {
 	if code := checkLaunchGuard("approve"); code != 0 {
 		return code
@@ -91,10 +91,10 @@ func cmdApprove(args []string) int {
 		return dieApprove("not inside a git repository")
 	}
 	if repo.Disabled() {
-		return dieApprove("repo is opted out (commit-gate.disabled); run: gate-enable")
+		return dieApprove("repo is opted out (commit-gate.disabled); run: commit-gate enable")
 	}
 	if !repo.Enabled(liveHooksDir()) {
-		return dieApprove("repo not enabled — run: gate-enable")
+		return dieApprove("repo not enabled — run: commit-gate enable")
 	}
 	if err := os.MkdirAll(repo.GateDir(), 0o755); err != nil {
 		return dieApprove("%s", err)
@@ -163,7 +163,7 @@ func cmdApprove(args []string) int {
 	// them is stale.
 	if _, err := os.Stat(repo.PushTokenPath()); err == nil {
 		os.Remove(repo.PushTokenPath())
-		fmt.Println("commit-gate: push token invalidated (approvals postdate it — re-run approve-push)")
+		fmt.Println("commit-gate: push token invalidated (approvals postdate it — re-run commit-gate approve-push)")
 	}
 
 	if consumePending {

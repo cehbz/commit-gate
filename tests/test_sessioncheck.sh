@@ -11,7 +11,7 @@ sessioncheck_is_quiet_in_a_repo_opted_out_by_disable() {
 }
 
 enabled="$(mkrepo)"; quiet "$enabled" || fail 'enabled repo should be quiet'
-pending sessioncheck_is_quiet_in_a_repo_opted_out_by_disable
+sessioncheck_is_quiet_in_a_repo_opted_out_by_disable
 nonrepo="$(mktemp -d)"; quiet "$nonrepo" || fail 'non-repo should be quiet'
 overridden="$(mkrepo)"; elsewhere="$(mktemp -d)"; git -C "$overridden" config core.hooksPath "$elsewhere"
 check "$overridden" | grep -q "is ungated: its core.hooksPath is $elsewhere" || fail 'overridden repo should be reported'

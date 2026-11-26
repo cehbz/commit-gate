@@ -35,5 +35,5 @@ a_repo_starts_enabled_and_disable_makes_it_inert() {
 }
 
 an_approved_commit_and_push_go_through_with_commit_gate_on_path
-pending a_repo_starts_enabled_and_disable_makes_it_inert
+a_repo_starts_enabled_and_disable_makes_it_inert
 echo "OK: test_integration"

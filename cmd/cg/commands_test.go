@@ -55,7 +55,6 @@ func assertUnknownCommand(t *testing.T, repo, what, stderr string, code int) {
 }
 
 func TestALinkNamedAfterACommandRunsNoCommand(t *testing.T) {
-	pending(t)
 	for _, name := range []string{
 		"approve", "approve-push", "clear-approvals", "gate-enable", "gate-disable", "gate-status",
 		"canonical", "hook-names", "status", "enable", "disable",
@@ -71,7 +70,6 @@ func TestALinkNamedAfterACommandRunsNoCommand(t *testing.T) {
 }
 
 func TestTheOldCommandNamesAreNotCommandWords(t *testing.T) {
-	pending(t)
 	for _, word := range []string{"gate-enable", "gate-disable", "gate-status"} {
 		repo := mkrepoT(t)
 		_, errStr, code := runIn(t, repo, "", "commit-gate", word, "--yes")
@@ -80,7 +78,6 @@ func TestTheOldCommandNamesAreNotCommandWords(t *testing.T) {
 }
 
 func TestCommitGateHasNoHookForm(t *testing.T) {
-	pending(t)
 	msgFile := filepath.Join(t.TempDir(), "MSG")
 	if err := os.WriteFile(msgFile, []byte("feat: through hook\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -98,7 +95,6 @@ func TestCommitGateHasNoHookForm(t *testing.T) {
 }
 
 func TestCommitGateWithNoCommandNamesEveryCommandAndNoOldName(t *testing.T) {
-	pending(t)
 	_, errStr, code := run(t, "", "commit-gate")
 	if code == 0 {
 		t.Fatalf("commit-gate with no command must fail, got exit 0; stderr=%q", errStr)
@@ -120,7 +116,6 @@ func TestCommitGateWithNoCommandNamesEveryCommandAndNoOldName(t *testing.T) {
 }
 
 func TestAHookNameAfterCommitGateIsAnUnknownCommand(t *testing.T) {
-	pending(t)
 	msgFile := filepath.Join(t.TempDir(), "MSG")
 	if err := os.WriteFile(msgFile, []byte("feat: as a word\n"), 0o644); err != nil {
 		t.Fatal(err)

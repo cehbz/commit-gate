@@ -1,10 +1,10 @@
-// manage.go implements the five gate-management commands: approve-push,
-// gate-enable, gate-disable, gate-status, clear-approvals.
+// manage.go implements the five gate-management commands, each a word after
+// commit-gate: approve-push, enable, disable, status and clear-approvals.
 //
-// approve-push and gate-disable are human-only, run by pasting a `!`
-// command an agent composed; like approve, they run launchguard.Check
-// first and refuse if their launch command contains anything besides cd
-// and commit-gate's own commands. See package launchguard.
+// approve-push and disable are human-only, run by pasting a `!` command an
+// agent composed; like approve, they run launchguard.Check first and refuse
+// if their launch command runs anything besides cd and commit-gate. See
+// package launchguard.
 package main
 
 import (
@@ -21,7 +21,7 @@ func hasYes(args []string) bool {
 	return len(args) > 0 && args[0] == "--yes"
 }
 
-// cmdApprovePush implements the `approve-push` command: require_enabled;
+// cmdApprovePush implements `commit-gate approve-push`: require_enabled;
 // confirm unless --yes; write a push token; report success.
 func cmdApprovePush(args []string) int {
 	if code := checkLaunchGuard("approve-push"); code != 0 {
@@ -33,10 +33,10 @@ func cmdApprovePush(args []string) int {
 		return dieApprove("not inside a git repository")
 	}
 	if repo.Disabled() {
-		return dieApprove("repo is opted out (commit-gate.disabled); run: gate-enable")
+		return dieApprove("repo is opted out (commit-gate.disabled); run: commit-gate enable")
 	}
 	if !repo.Enabled(liveHooksDir()) {
-		return dieApprove("repo not enabled — run: gate-enable")
+		return dieApprove("repo not enabled — run: commit-gate enable")
 	}
 	if !hasYes(args) {
 		if err := confirm.Confirm("commit-gate — authorize ONE push from this repo?"); err != nil {
@@ -53,10 +53,10 @@ func cmdApprovePush(args []string) int {
 	return 0
 }
 
-// cmdGateEnable implements the `gate-enable` command: Repo.Enable with the
+// cmdEnable implements `commit-gate enable`: Repo.Enable with the
 // live hooks dir, which clears the repo's opt-out and its repo-local
 // core.hooksPath so the global core.hooksPath gates it.
-func cmdGateEnable(_ []string) int {
+func cmdEnable(_ []string) int {
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
 	if err != nil {
@@ -73,10 +73,10 @@ func cmdGateEnable(_ []string) int {
 	return 0
 }
 
-// cmdGateDisable implements the `gate-disable` command: confirm unless
+// cmdDisable implements `commit-gate disable`: confirm unless
 // --yes, then opt the repo out via commit-gate.disabled.
-func cmdGateDisable(args []string) int {
-	if code := checkLaunchGuard("gate-disable"); code != 0 {
+func cmdDisable(args []string) int {
+	if code := checkLaunchGuard("disable"); code != 0 {
 		return code
 	}
 	cwd, _ := os.Getwd()
@@ -100,12 +100,12 @@ func cmdGateDisable(args []string) int {
 	return 0
 }
 
-// cmdGateStatus implements the `gate-status` command: report the repo
+// cmdStatus implements `commit-gate status`: report the repo
 // opted-out, enabled (with pending approvals + push token state), overridden
 // by a core.hooksPath above the global one (naming it, its scope when not
 // repo-local, and what gates the repo), or ungated (naming why); an
 // unreadable core.hooksPath is an error.
-func cmdGateStatus(_ []string) int {
+func cmdStatus(_ []string) int {
 	cwd, _ := os.Getwd()
 	repo, err := gatestate.Open(cwd)
 	if err != nil {
@@ -157,7 +157,7 @@ func cmdGateStatus(_ []string) int {
 	return 0
 }
 
-// cmdClearApprovals implements the `clear-approvals` command: truncate the
+// cmdClearApprovals implements `commit-gate clear-approvals`: truncate the
 // manifest and remove the push token.
 func cmdClearApprovals(_ []string) int {
 	cwd, _ := os.Getwd()

@@ -24,5 +24,5 @@ status_enable_clear_approvals_and_disable_manage_a_repo() {
   [ "$(git config --get commit-gate.disabled)" = true ] || fail 'commit-gate disable did not set flag'
   "$CG" status | grep -q opted-out || fail 'should report opted-out'
 }
-pending status_enable_clear_approvals_and_disable_manage_a_repo
+status_enable_clear_approvals_and_disable_manage_a_repo
 echo "OK: test_manage"
