@@ -40,6 +40,16 @@ deliberate indirection (sabotage), outside the rationalization threat model:
   prints the full messages.
 Closing any of these means expanding the threat model from rationalization to sabotage.
 
+## Worth investigating
+Alternatives never evaluated against the gate (README, How it differs):
+- Other commit gates and hook managers: none has been compared.
+- Server-side enforcement: a `pre-receive` hook or GitHub branch protection and rulesets,
+  which run where the agent has no access.
+- A separate OS user for the agent, so file permissions keep it out of the gate, the
+  global git config and `settings.json`.
+- Claude Code permission rules (`deny` or `ask` on `Bash(git commit:*)` and the like),
+  alongside or in place of parts of the precheck.
+
 ## Precheck gaps
 - Native hooks: the precheck denies a direct write into `.git/hooks` (cp, mv, rm, tee,
   `sed -i`, a redirect, Write, Edit) but not `ln`, nor a script that creates the hook, such
