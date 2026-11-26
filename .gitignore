@@ -1,4 +1,6 @@
-docs/
+docs/handoff.md
+docs/superpowers/
+docs/stage1-assets/
 build/
 .superpowers/
 .claude/

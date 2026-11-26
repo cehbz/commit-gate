@@ -33,6 +33,11 @@ deliberate indirection (sabotage), outside the rationalization threat model:
   and `${HOME}` are resolved.
 - `GIT_CONFIG_GLOBAL` set in the agent's environment: the file it names is the global config
   git reads, and the precheck protects only `~/.gitconfig` and `$XDG_CONFIG_HOME/git/config`.
+- Plumbing: `git commit-tree` plus `git update-ref` makes a commit without running
+  commit-msg, and the precheck allows both.
+- Rewriting `cg-pending`, which is outside the protected set, so a bare `approve` records
+  the rewritten message; its confirmation dialog shows subjects only, though the terminal
+  prints the full messages.
 Closing any of these means expanding the threat model from rationalization to sabotage.
 
 ## Precheck gaps
