@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// CanonicalHash mirrors lib/canonical: CRLF->LF, strip trailing
+// CanonicalHash hashes a message's canonical form: CRLF->LF, strip trailing
 // horizontal whitespace per line, drop trailing blank lines, every kept
 // line newline-terminated.
 func CanonicalHash(msg string) string {

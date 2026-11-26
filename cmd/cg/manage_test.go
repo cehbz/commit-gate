@@ -1,7 +1,5 @@
 // manage_test.go covers the five gate-management commands: approve-push,
-// gate-enable, gate-disable, gate-status, clear-approvals. Behavioral
-// contract = reference files bin/approve-push, bin/gate-enable,
-// bin/gate-disable, bin/gate-status, bin/clear-approvals. Tests never omit
+// gate-enable, gate-disable, gate-status, clear-approvals. Tests never omit
 // --yes on commands that would otherwise invoke confirm.Confirm, since that
 // would pop a real OS dialog / block on a tty in CI.
 package main_test

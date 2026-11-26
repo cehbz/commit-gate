@@ -1,6 +1,5 @@
 // approve.go implements the `approve` command: human approval of one or
-// more pending commit messages. Behavioral contract = reference file
-// bin/approve (sourcing lib/common's require_enabled/confirm/die).
+// more pending commit messages.
 //
 // approve is human-only, run by pasting a `!` command an agent composed
 // (see policy.MsgHumanOnly / policy.MsgReminder). Before doing anything
@@ -28,8 +27,8 @@ const approveSep = "@@COMMIT-GATE-SEP@@"
 
 const approveUsage = "usage: approve [-F file | --plan plan.md] [--yes]   (bare: reads the preloaded pending file)"
 
-// dieApprove prints "commit-gate: <formatted message>" to stderr (matching
-// bash's die()) and returns the exit code callers should propagate.
+// dieApprove prints "commit-gate: <formatted message>" to stderr and
+// returns the exit code callers should propagate.
 func dieApprove(format string, a ...any) int {
 	fmt.Fprintf(os.Stderr, "commit-gate: "+format+"\n", a...)
 	return 1
@@ -175,10 +174,9 @@ func cmdApprove(args []string) int {
 
 // splitOnApproveSep splits content on lines exactly equal to approveSep,
 // joining the lines of each message with "\n" (no trailing newline), and
-// drops empty messages. This is a direct transcription of bin/approve's
-// read loop, including its quirk: if a message's first accumulated line is
-// itself empty, the "cur is empty" check can't distinguish that from "no
-// message started yet" -- matched here deliberately for parity.
+// drops empty messages. A message's leading empty lines are dropped too:
+// the "cur is empty" check can't tell an empty first line from "no message
+// started yet".
 func splitOnApproveSep(content string) []string {
 	var msgs []string
 	cur := ""
@@ -205,9 +203,8 @@ func splitOnApproveSep(content string) []string {
 	return msgs
 }
 
-// planMsgRe mirrors the two regexes on bin/approve line 41 (double- and
-// single-quoted -m payloads), applied per-line to match grep -oE's
-// line-oriented semantics.
+// planMsgRe matches double- and single-quoted -m payloads, applied per
+// line, so a payload never spans lines.
 var planMsgRe = regexp.MustCompile(`git commit[^"']*-m[ \t]*"([^"]*)"|git commit[^"']*-m[ \t]*'([^']*)'`)
 
 // extractPlanMessages extracts every `git commit ... -m "..."` / `-m '...'`

@@ -56,8 +56,7 @@ type envelope struct {
 }
 
 // marshal emits compact one-line JSON with a trailing newline and NO HTML
-// escaping, matching jq's output byte-for-byte (the bash implementation
-// emitted these shapes via jq, which leaves & < > literal).
+// escaping, so & < > stay literal, as jq emits them.
 func marshal(e envelope) []byte {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)

@@ -26,7 +26,7 @@ func AppendApprovals(manifestPath string, msgs []string) error {
 }
 
 // ConsumeApproval removes every manifest line for hash (single-use approval;
-// duplicates collapse, matching bash grep -v). Atomic: temp file + rename.
+// duplicates collapse). Atomic: temp file + rename.
 func ConsumeApproval(manifestPath, hash string) (bool, error) {
 	raw, err := os.ReadFile(manifestPath)
 	if errors.Is(err, fs.ErrNotExist) {

@@ -60,7 +60,7 @@ func chainLocal(repo *gatestate.Repo, name string, args []string) int {
 			}
 			return ee.ExitCode()
 		}
-		return 1 // couldn't even run it; fail closed like the bash `|| exit $?`
+		return 1 // couldn't even run it; fail closed
 	}
 	return -1
 }

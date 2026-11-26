@@ -1,8 +1,8 @@
 // Package confirm implements the human-confirmation channel used by
-// human-only commands (approve, approve-push). Behavioral contract =
-// lib/common's confirm() shell function: macOS osascript dialog (works even
-// over the tty-less `!` shell used by some agent harnesses) -> /dev/tty
-// y/N prompt -> abort with "no confirmation channel".
+// human-only commands (approve, approve-push, gate-disable): macOS
+// osascript dialog (works even over the tty-less `!` shell used by some
+// agent harnesses) -> /dev/tty y/N prompt -> abort with "no confirmation
+// channel".
 package confirm
 
 import (
@@ -18,9 +18,8 @@ import (
 // runtime.GOOS) so tests can force either branch.
 var GOOS = runtime.GOOS
 
-// RunOsascript runs the exact AppleScript confirmation dialog from
-// lib/common (buttons Cancel/Confirm, default button Cancel, title
-// "commit-gate"), passing prompt as argv[0] of the `on run argv` handler.
+// RunOsascript runs the AppleScript confirmation dialog (buttons
+// Cancel/Confirm, default button Cancel, title "commit-gate"), passing prompt as argv[0] of the `on run argv` handler.
 // It is a package var so tests can stub it out.
 var RunOsascript = func(prompt string) error {
 	const script = `on run argv
@@ -35,7 +34,7 @@ end run
 // ReadTTY writes prompt to /dev/tty and reads one line of reply. A non-nil
 // error means the channel itself is unavailable (no controlling terminal);
 // a failed read after a successful prompt returns an empty reply with a
-// nil error, matching bash's read -r reply </dev/tty 2>/dev/null || reply=(empty).
+// nil error.
 // It is a package var so tests can stub it out.
 var ReadTTY = func(prompt string) (string, error) {
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)

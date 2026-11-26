@@ -1,8 +1,5 @@
 // manage.go implements the five gate-management commands: approve-push,
-// gate-enable, gate-disable, gate-status, clear-approvals. Behavioral
-// contract = reference files bin/approve-push, bin/gate-enable,
-// bin/gate-disable, bin/gate-status, bin/clear-approvals (sourcing
-// lib/common's require_enabled/confirm/die/gate_dir/is_enabled/is_disabled).
+// gate-enable, gate-disable, gate-status, clear-approvals.
 //
 // approve-push and gate-disable are human-only, run by pasting a `!`
 // command an agent composed; like approve, they run launchguard.Check
@@ -19,8 +16,7 @@ import (
 	"github.com/cehbz/commit-gate/gatestate"
 )
 
-// hasYes reports whether the first argument is exactly "--yes", matching
-// bash's `[ "${1:-}" = "--yes" ]` check.
+// hasYes reports whether the first argument is exactly "--yes".
 func hasYes(args []string) bool {
 	return len(args) > 0 && args[0] == "--yes"
 }

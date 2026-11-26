@@ -4,8 +4,7 @@ import "github.com/cehbz/commit-gate/shellscan"
 
 // R5: approve / approve-push / gate-disable are human-only — the agent may
 // never invoke them itself (they must be run via `!` or a human terminal).
-// Path-qualified invocations count (deliberate tightening vs. bash, which
-// matched on bare command word only): shellscan.Basename strips the
+// Path-qualified invocations count: shellscan.Basename strips the
 // directory, so /Users/x/.local/bin/approve is caught too.
 var humanOnly = map[string]bool{"approve": true, "approve-push": true, "gate-disable": true}
 
