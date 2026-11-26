@@ -44,6 +44,6 @@ install_links_commit_gate_in_the_bin_dir_and_no_old_name() {
   [ -L "$tmp/fresh-bin/commit-gate" ] || fail "commit-gate in the bin directory is not a link"
   [ "$tmp/fresh-bin/commit-gate" -ef "$tmp/libexec/commit-gate" ] || fail "the bin directory's commit-gate is not the installed binary"
 }
-pending install_links_commit_gate_in_the_bin_dir_and_no_old_name
+install_links_commit_gate_in_the_bin_dir_and_no_old_name
 rm -rf "$elsewhere"
 echo "OK: test_install"

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the commit-gate Go binary, install its git-hook and PATH symlinks,
+# Build the commit-gate Go binary, link its hooks and put commit-gate on PATH,
 # point the global core.hooksPath at the gate, and merge its PreToolUse and
 # SessionStart hooks into Claude Code's settings.json.
 # Idempotent: safe to re-run after a pull.
@@ -15,7 +15,8 @@ command -v go >/dev/null 2>&1 || { echo "commit-gate: Go is required to build" >
 
 mkdir -p "$LIBEXEC/hooks" "$BIN_DIR" "$CLAUDE_DIR"
 
-# Single binary; every entry point is a symlink dispatched on argv[0] basename.
+# Single binary: run as commit-gate it takes a command word; under any other
+# name, linked below, it is the hook of that name.
 # Go resolves the module from the working directory, not from the package path.
 cd "$SCRIPT_DIR"
 go build -o "$BIN" ./cmd/cg
@@ -28,10 +29,9 @@ for h in $("$BIN" hook-names); do ln -sf ../commit-gate "$LIBEXEC/hooks/$h"; don
 ln -sf commit-gate "$LIBEXEC/precheck"
 ln -sf commit-gate "$LIBEXEC/sessioncheck"
 
-for name in approve approve-push clear-approvals gate-disable gate-enable gate-status; do
-  ln -sf "$BIN" "$BIN_DIR/$name"
-  echo "Linked: $BIN_DIR/$name"
-done
+# commit-gate is the only name on PATH; its commands are words after it.
+ln -sf "$BIN" "$BIN_DIR/commit-gate"
+echo "Linked: $BIN_DIR/commit-gate"
 
 # Gate every repo: the global core.hooksPath names the gate's hooks. One
 # naming another directory is reported and left as it is.

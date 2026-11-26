@@ -1,6 +1,5 @@
-// canonical.go implements the `canonical` subcommand, a thin CLI wrapper
-// around gatestate.CanonicalHash used by the acceptance tests (and
-// linked as build/lib/canonical): read a
+// canonical.go implements `commit-gate canonical`, a thin CLI wrapper
+// around gatestate.CanonicalHash used by the acceptance tests: read a
 // commit message on stdin, write its canonical sha256 (64 hex chars)
 // followed by a newline on stdout.
 package main
