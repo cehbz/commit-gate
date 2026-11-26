@@ -27,7 +27,6 @@ func wrapShellC(userText string) []string {
 }
 
 func TestDecideRealWrapperAroundApprove(t *testing.T) {
-	pending(t)
 	r := decide("approve", wrapShellC("commit-gate approve --yes"), nil)
 	if !r.Allow {
 		t.Fatalf("want allow, got deny: %q", r.Reason)
@@ -35,7 +34,6 @@ func TestDecideRealWrapperAroundApprove(t *testing.T) {
 }
 
 func TestDecideCdThenApprove(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", "cd ~/x && commit-gate approve"}, nil)
 	if !r.Allow {
 		t.Fatalf("want allow, got deny: %q", r.Reason)
@@ -43,7 +41,6 @@ func TestDecideCdThenApprove(t *testing.T) {
 }
 
 func TestDecideCdThenApproveThenApprovePush(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", "cd x && commit-gate approve -F f && commit-gate approve-push"}, nil)
 	if !r.Allow {
 		t.Fatalf("want allow, got deny: %q", r.Reason)
@@ -51,7 +48,6 @@ func TestDecideCdThenApproveThenApprovePush(t *testing.T) {
 }
 
 func TestDecideRefusesInstallShInChain(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", "commit-gate approve && ./install.sh && commit-gate approve-push"}, nil)
 	if r.Allow {
 		t.Fatal("want deny")
@@ -65,7 +61,6 @@ func TestDecideRefusesInstallShInChain(t *testing.T) {
 }
 
 func TestDecideRefusesSemicolonRm(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", "commit-gate approve; rm -rf x"}, nil)
 	if r.Allow {
 		t.Fatal("want deny")
@@ -76,7 +71,6 @@ func TestDecideRefusesSemicolonRm(t *testing.T) {
 }
 
 func TestDecideRefusesPipeToTee(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", "commit-gate approve | tee log"}, nil)
 	if r.Allow {
 		t.Fatal("want deny")
@@ -97,7 +91,6 @@ func TestDecideRefusesCommandSubstitutionArgument(t *testing.T) {
 }
 
 func TestDecideAllowsEmbeddedSingleQuoteResolvedThroughEval(t *testing.T) {
-	pending(t)
 	// The user's own command safely quotes its apostrophe in DOUBLE quotes;
 	// Claude's outer wrapper then single-quotes the WHOLE text for eval,
 	// which escapes that embedded apostrophe as '\''. decide must resolve
@@ -178,7 +171,6 @@ func TestCheckUsesGetParentArgvSeam(t *testing.T) {
 }
 
 func TestDecideAllowsPathQualifiedCommitGateCommands(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", "/Users/t/.local/bin/commit-gate approve && ~/.local/libexec/commit-gate/commit-gate approve-push"}, nil)
 	if !r.Allow {
 		t.Fatalf("want allow, got deny: %q", r.Reason)
@@ -186,7 +178,6 @@ func TestDecideAllowsPathQualifiedCommitGateCommands(t *testing.T) {
 }
 
 func TestDecideAllowsAnyCommitGateCommandBesideCd(t *testing.T) {
-	pending(t)
 	script := "cd ~/x && commit-gate status && commit-gate clear-approvals && commit-gate approve -F f && commit-gate enable && commit-gate approve-push"
 	r := decide("approve", []string{"/bin/zsh", "-c", script}, nil)
 	if !r.Allow {
@@ -197,7 +188,6 @@ func TestDecideAllowsAnyCommitGateCommandBesideCd(t *testing.T) {
 // The old names are not commit-gate: a chain that runs one runs something
 // else.
 func TestDecideRefusesAnOldCommandNameInTheChain(t *testing.T) {
-	pending(t)
 	for _, old := range []string{"approve-push", "approve", "gate-status", "clear-approvals"} {
 		r := decide("approve", []string{"/bin/zsh", "-c", "cd x && commit-gate approve && " + old}, nil)
 		if r.Allow {
@@ -210,7 +200,6 @@ func TestDecideRefusesAnOldCommandNameInTheChain(t *testing.T) {
 }
 
 func TestDecideRefusesAComputedCommitGateCommandWord(t *testing.T) {
-	pending(t)
 	r := decide("approve", []string{"/bin/zsh", "-c", `commit-gate approve && commit-gate "$c"`}, nil)
 	if r.Allow {
 		t.Fatal("want deny")

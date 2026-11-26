@@ -1,11 +1,11 @@
-// Package launchguard protects the human-only commands (approve,
-// approve-push, gate-disable) against blind pastes: an agent-composed `!`
-// command chain such as `approve && ./install.sh && approve-push` would, if
-// pasted and confirmed once, run everything in the chain without individual
-// review. Check inspects the argv of the shell that launched this process
-// (its parent, read via os.Getppid()) and refuses to proceed when that
-// launch command contains anything other than `cd` and commit-gate's own
-// commands.
+// Package launchguard protects the human-only commands (commit-gate
+// approve, approve-push and disable) against blind pastes: an
+// agent-composed `!` command chain such as `commit-gate approve &&
+// ./install.sh` would, if pasted and confirmed once, run everything in the
+// chain without individual review. Check inspects the argv of the shell
+// that launched this process (its parent, read via os.Getppid()) and
+// refuses to proceed when that launch command runs anything other than
+// `cd` and `commit-gate`.
 //
 // This is not a defense against an adversary who controls the parent
 // process's argv — it guards against an honest human pasting a chain they
@@ -22,16 +22,11 @@ import (
 )
 
 // allowed is the set of command basenames a human-confirmed command's
-// launch chain may contain, besides itself. cd is allowed so `cd ~/repo &&
-// approve` keeps working; the rest are commit-gate's own commands.
+// launch chain may contain: cd, so `cd ~/repo && commit-gate approve` keeps
+// working, and commit-gate, whose words are the gate's own commands.
 var allowed = map[string]bool{
-	"cd":              true,
-	"approve":         true,
-	"approve-push":    true,
-	"clear-approvals": true,
-	"gate-status":     true,
-	"gate-enable":     true,
-	"gate-disable":    true,
+	"cd":          true,
+	"commit-gate": true,
 }
 
 // Result is the outcome of Check. Note and Reason are fully formatted,
@@ -48,9 +43,9 @@ type Result struct {
 // parentargv_linux.go (/proc/<ppid>/cmdline), parentargv_other.go (stub).
 var GetParentArgv = defaultGetParentArgv
 
-// Check inspects the launch command of the process running cmdName (one of
-// "approve", "approve-push", "gate-disable") and reports whether it may
-// proceed.
+// Check inspects the launch command of the process running the command
+// word cmdName (one of "approve", "approve-push", "disable") and reports
+// whether it may proceed.
 func Check(cmdName string) Result {
 	argv, err := GetParentArgv()
 	return decide(cmdName, argv, err)
@@ -96,10 +91,10 @@ func scriptFromArgv(argv []string) (string, bool) {
 // disallowed walks every simple command in checked (via shellscan, which
 // already flattens &&/||/;/pipelines/subshells/blocks and recurses into
 // command substitutions as ordinary statements) and reports the raw text
-// of every one that is not an allowed commit-gate command, plus a marker
+// of every one that is not cd or commit-gate, plus a marker
 // for any unresolvable command name or argument (command substitution,
-// parameter expansion, ...) even on an otherwise-allowed command: e.g. `cd
-// $(approve)` must not slip through just because "approve" is allowed.
+// parameter expansion, ...) even on an allowed command: e.g. `commit-gate
+// "$c"` must not slip through just because commit-gate is allowed.
 func disallowed(checked string) (bad []string, parseErr bool) {
 	res := shellscan.Scan(checked)
 	if res.ParseErr {

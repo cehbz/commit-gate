@@ -48,7 +48,6 @@ func skipUnlessSupportedPlatform(t *testing.T) {
 }
 
 func TestApproveRefusesWhenShellLaunchAlsoRunsInstallSh(t *testing.T) {
-	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
 
@@ -75,7 +74,6 @@ func TestApproveRefusesWhenShellLaunchAlsoRunsInstallSh(t *testing.T) {
 }
 
 func TestApprovePushRefusesWhenShellLaunchAlsoRunsRm(t *testing.T) {
-	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
 
@@ -125,7 +123,6 @@ func TestDisableRefusesWhenPipedToTee(t *testing.T) {
 // through the real parent-argv syscall path, not just the launchguard
 // package's fake seam.
 func TestApproveAndApprovePushRunWhenTheShellLaunchIsCdAndCommitGateAlone(t *testing.T) {
-	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
 	elsewhere := t.TempDir()
