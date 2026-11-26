@@ -1,8 +1,8 @@
 #!/bin/bash
 set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
-CANON="$DIR/../lib/canonical"
-h() { printf '%b' "$1" | "$CANON"; }
+CG="$DIR/../commit-gate"
+h() { printf '%b' "$1" | "$CG" canonical; }
 assert_eq "$(h 'feat: hello')" '93d453a2465815abe2767283e34931387395497416d2e016a28d19ba676361ff' 'plain'
 assert_eq "$(h 'feat: hello   ')" '93d453a2465815abe2767283e34931387395497416d2e016a28d19ba676361ff' 'trailing ws'
 assert_eq "$(h 'feat: hello\r')" '93d453a2465815abe2767283e34931387395497416d2e016a28d19ba676361ff' 'CRLF'

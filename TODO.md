@@ -35,9 +35,12 @@ deliberate indirection (sabotage), outside the rationalization threat model:
   git reads, and the precheck protects only `~/.gitconfig` and `$XDG_CONFIG_HOME/git/config`.
 - Plumbing: `git commit-tree` plus `git update-ref` makes a commit without running
   commit-msg, and the precheck allows both.
-- Rewriting `cg-pending`, which is outside the protected set, so a bare `approve` records
-  the rewritten message; its confirmation dialog shows subjects only, though the terminal
-  prints the full messages.
+- Rewriting `cg-pending`, which is outside the protected set, so a bare `commit-gate approve`
+  records the rewritten message; its confirmation dialog shows subjects only, though the
+  terminal prints the full messages.
+- Wrappers in front of `commit-gate`: `timeout 60 commit-gate approve`, `nohup` and `nice`
+  run a human-only command; the precheck denies `commit-gate approve`, `approve-push` and
+  `disable` only where `commit-gate` is the command name, on PATH or by its path.
 Closing any of these means expanding the threat model from rationalization to sabotage.
 
 ## Worth investigating
@@ -60,8 +63,8 @@ Alternatives never evaluated against the gate (README, How it differs):
   closed? The binary recovers-to-deny, but that only covers the case where it actually runs.
 
 ## Ergonomics
-- `approve --plan` extracts only single-line `-m "…"` payloads; multi-line / trailer
-  messages need `-F` with the `@@COMMIT-GATE-SEP@@` separator.
+- `commit-gate approve --plan` extracts only single-line `-m "…"` payloads; multi-line or
+  trailer messages need `-F` with the `@@COMMIT-GATE-SEP@@` separator.
 
 ## Harness (not gate code)
 - Pasting `!` commands is unreliable — often needs hand-editing before it runs, and appears

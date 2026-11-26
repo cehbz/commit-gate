@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; no_global_gate
-HOOK="$DIR/../hooks/commit-msg"; CANON="$DIR/../lib/canonical"
+HOOK="$DIR/../hooks/commit-msg"; CG="$DIR/../commit-gate"
 
 repo="$(mkrepo)"; cd "$repo"
 gate="$(cd "$(git rev-parse --git-common-dir)" && pwd)/commit-gate"; mkdir -p "$gate"
@@ -11,7 +11,7 @@ gate="$(cd "$(git rev-parse --git-common-dir)" && pwd)/commit-gate"; mkdir -p "$
 if "$HOOK" m.txt; then fail 'unapproved admitted'; fi
 
 # Approved -> admit + consume
-printf '%s  feat: alpha\n' "$(printf 'feat: alpha' | "$CANON")" > "$gate/approved"
+printf '%s  feat: alpha\n' "$(printf 'feat: alpha' | "$CG" canonical)" > "$gate/approved"
 "$HOOK" m.txt || fail 'approved denied'
 [ -s "$gate/approved" ] && fail 'not consumed' || true
 

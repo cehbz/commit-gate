@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-// TestCanonicalSubcommand mirrors bash lib/canonical: stdin message in,
-// 64-hex sha256 (+ trailing newline) out, exit 0.
+// TestCanonicalSubcommand: commit-gate canonical reads a message on stdin and
+// prints its 64-hex identity and a newline, exit 0.
 func TestCanonicalSubcommand(t *testing.T) {
 	out, errStr, code := run(t, "feat: hello", "commit-gate", "canonical")
 	if code != 0 {

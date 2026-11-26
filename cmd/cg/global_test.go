@@ -152,20 +152,22 @@ func TestSessioncheckReadsAnIncludedGlobalHooksPath(t *testing.T) {
 	}
 }
 
-func TestGateStatusReadsAnIncludedGlobalHooksPath(t *testing.T) {
+func TestStatusReadsAnIncludedGlobalHooksPath(t *testing.T) {
+	pending(t)
 	globalHooksPathViaInclude(t, liveHooks(t))
-	out, errStr, code := runIn(t, mkrepoT(t), "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, mkrepoT(t), "", "commit-gate", "status")
 	if code != 0 || !strings.HasPrefix(out, "commit-gate: enabled\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
 	}
 }
 
-func TestGateEnableReadsAnIncludedGlobalHooksPath(t *testing.T) {
+func TestEnableReadsAnIncludedGlobalHooksPath(t *testing.T) {
+	pending(t)
 	globalHooksPathViaInclude(t, liveHooks(t))
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable: code=%d stderr=%q", code, errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable: code=%d stderr=%q", code, errStr)
 	}
 	if hp := localHooksPath(t, repo); hp != "" {
 		t.Fatalf("the override must be cleared: %q", hp)
@@ -200,27 +202,30 @@ func TestSessioncheckReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
 	}
 }
 
-func TestGateEnableReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+func TestEnableReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
 	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable: code=%d stderr=%q", code, errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable: code=%d stderr=%q", code, errStr)
 	}
 }
 
-func TestGateStatusReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+func TestStatusReadsAGlobalHooksPathFromAnIncludeIfGitdir(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, liveHooks(t))
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	if code != 0 || !strings.HasPrefix(out, "commit-gate: enabled\n") {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
 	}
 }
 
-// sessioncheck, gate-enable and gate-status name the included file that
+// sessioncheck, commit-gate enable and commit-gate status name the included file that
 // sets a foreign global core.hooksPath in their remedy.
 func TestTheGlobalGateRemedyNamesTheIncludedFileEverywhere(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	globalHooksPathViaIncludeIf(t, repo, t.TempDir())
 	inc := filepath.Join(filepath.Dir(os.Getenv("GIT_CONFIG_GLOBAL")), "hooks.inc")
@@ -230,10 +235,10 @@ func TestTheGlobalGateRemedyNamesTheIncludedFileEverywhere(t *testing.T) {
 		!strings.Contains(so.HookSpecificOutput.AdditionalContext, fix) {
 		t.Fatalf("sessioncheck: %+v, want the fix %q", so, fix)
 	}
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 1 || !strings.Contains(errStr, fix) {
-		t.Fatalf("gate-enable: code=%d stderr=%q, want the fix %q", code, errStr, fix)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 1 || !strings.Contains(errStr, fix) {
+		t.Fatalf("commit-gate enable: code=%d stderr=%q, want the fix %q", code, errStr, fix)
 	}
-	if out, _, _ := runIn(t, repo, "", "commit-gate", "gate-status"); !strings.Contains(out, fix) {
-		t.Fatalf("gate-status: %q, want the fix %q", out, fix)
+	if out, _, _ := runIn(t, repo, "", "commit-gate", "status"); !strings.Contains(out, fix) {
+		t.Fatalf("commit-gate status: %q, want the fix %q", out, fix)
 	}
 }

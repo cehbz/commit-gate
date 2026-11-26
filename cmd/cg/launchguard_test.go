@@ -1,5 +1,5 @@
-// launchguard_test.go end-to-end tests the launch-guard wiring in
-// cmdApprove/cmdApprovePush/cmdGateDisable through a REAL shell -c
+// launchguard_test.go end-to-end tests the launch guard of commit-gate
+// approve, approve-push and disable through a REAL shell -c
 // invocation (not the launchguard package's injected seam): the compiled
 // binary's parent process really is `/bin/sh -c "<script>"`, and the check
 // reads that parent's actual argv via the platform syscall path
@@ -20,20 +20,6 @@ import (
 
 	"github.com/cehbz/commit-gate/gatestate"
 )
-
-// symlinkAs creates a symlink named name (in its own temp dir) pointing at
-// the compiled test binary, so dispatch() sees the human-only basename
-// (approve, approve-push, gate-disable) the real install.sh layout uses,
-// rather than the `commit-gate <subcommand>` dispatch form the rest of this
-// test package uses for convenience.
-func symlinkAs(t *testing.T, name string) string {
-	t.Helper()
-	link := filepath.Join(t.TempDir(), name)
-	if err := os.Symlink(bin, link); err != nil {
-		t.Fatal(err)
-	}
-	return link
-}
 
 // runShellC runs /bin/sh -c script with dir as its working directory and
 // stdin as its stdin, returning combined stdout+stderr and the exit code.
@@ -62,17 +48,16 @@ func skipUnlessSupportedPlatform(t *testing.T) {
 }
 
 func TestApproveRefusesWhenShellLaunchAlsoRunsInstallSh(t *testing.T) {
+	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
-	setHooksPath(t, repo)
-	approve := symlinkAs(t, "approve")
 
-	script := approve + " --yes && ./install.sh"
+	script := bin + " approve --yes && ./install.sh"
 	out, code := runShellC(t, repo, "", script)
 	if code == 0 {
 		t.Fatalf("want non-zero exit, got 0; output=%q", out)
 	}
-	want := "commit-gate: approve refuses to run in a command that also runs ./install.sh"
+	want := "approve refuses to run in a command that also runs ./install.sh — run commit-gate approve on its own"
 	if !strings.Contains(out, want) {
 		t.Fatalf("output must contain %q, got %q", want, out)
 	}
@@ -90,23 +75,23 @@ func TestApproveRefusesWhenShellLaunchAlsoRunsInstallSh(t *testing.T) {
 }
 
 func TestApprovePushRefusesWhenShellLaunchAlsoRunsRm(t *testing.T) {
+	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
-	setHooksPath(t, repo)
-	approvePush := symlinkAs(t, "approve-push")
 
 	// `;` does not short-circuit: rm still runs after approve-push refuses
 	// (that's exactly the risk this feature warns about — it cannot stop a
 	// sibling statement from running, only refuse its own state change).
 	// Capture approve-push's own exit code via $ec rather than the whole
 	// script's, which `;` makes rm's.
-	script := approvePush + " --yes; ec=$?; rm -rf /tmp/should-not-run; exit $ec"
+	script := bin + " approve-push --yes; ec=$?; rm -rf /tmp/should-not-run; exit $ec"
 	out, code := runShellC(t, repo, "", script)
 	if code == 0 {
 		t.Fatalf("want non-zero exit, got 0; output=%q", out)
 	}
-	if !strings.Contains(out, "commit-gate: approve-push refuses to run in a command that also runs rm") {
-		t.Fatalf("unexpected output: %q", out)
+	want := "approve-push refuses to run in a command that also runs rm — run commit-gate approve-push on its own"
+	if !strings.Contains(out, want) {
+		t.Fatalf("output must contain %q, got %q", want, out)
 	}
 
 	r, _ := gatestate.Open(repo)
@@ -115,38 +100,42 @@ func TestApprovePushRefusesWhenShellLaunchAlsoRunsRm(t *testing.T) {
 	}
 }
 
-func TestGateDisableRefusesWhenPipedToTee(t *testing.T) {
+func TestDisableRefusesWhenPipedToTee(t *testing.T) {
+	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
-	gateDisable := symlinkAs(t, "gate-disable")
 
 	// A pipe starts both sides concurrently regardless of either's exit
 	// code, so the overall script's exit code here is tee's, not
-	// gate-disable's; what matters is that gate-disable refused (message)
-	// and made no state change (checked below).
-	script := gateDisable + " --yes | tee /tmp/should-not-run.log"
+	// disable's; what matters is that disable refused (message) and made
+	// no state change (checked below).
+	script := bin + " disable --yes | tee /tmp/should-not-run.log"
 	out, _ := runShellC(t, repo, "", script)
-	if !strings.Contains(out, "commit-gate: gate-disable refuses to run in a command that also runs tee") {
-		t.Fatalf("unexpected output: %q", out)
+	want := "disable refuses to run in a command that also runs tee — run commit-gate disable on its own"
+	if !strings.Contains(out, want) {
+		t.Fatalf("output must contain %q, got %q", want, out)
 	}
 	if got := gitGetConfig(t, repo, "commit-gate.disabled"); got != "" {
 		t.Fatalf("commit-gate.disabled must not have been set, got %q", got)
 	}
 }
 
-// Positive control: a real `cd <repo> && approve` shell launch (the
-// documented, supported pattern) must still work end-to-end through the
-// real parent-argv syscall path, not just the launchguard package's fake
-// seam.
-func TestApproveAllowedWhenShellLaunchIsJustCdAndApprove(t *testing.T) {
+// Positive control: `cd <repo> && commit-gate approve -F f && commit-gate
+// approve-push`, the documented handoff, runs both commands end-to-end
+// through the real parent-argv syscall path, not just the launchguard
+// package's fake seam.
+func TestApproveAndApprovePushRunWhenTheShellLaunchIsCdAndCommitGateAlone(t *testing.T) {
+	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
-	setHooksPath(t, repo)
-	approve := symlinkAs(t, "approve")
 	elsewhere := t.TempDir()
+	f := filepath.Join(t.TempDir(), "msgs")
+	if err := os.WriteFile(f, []byte("feat: shell-launched\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-	script := "cd " + repo + " && " + approve + " --yes"
-	out, code := runShellC(t, elsewhere, "feat: shell-launched\n", script)
+	script := "cd " + repo + " && " + bin + " approve --yes -F " + f + " && " + bin + " approve-push --yes"
+	out, code := runShellC(t, elsewhere, "", script)
 	if code != 0 {
 		t.Fatalf("want exit 0, got %d; output=%q", code, out)
 	}
@@ -161,5 +150,8 @@ func TestApproveAllowedWhenShellLaunchIsJustCdAndApprove(t *testing.T) {
 	}
 	if len(subj) != 1 || subj[0] != "feat: shell-launched" {
 		t.Fatalf("want [feat: shell-launched], got %v", subj)
+	}
+	if _, err := os.Stat(r.PushTokenPath()); err != nil {
+		t.Fatalf("push token must exist: %v", err)
 	}
 }

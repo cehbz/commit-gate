@@ -28,3 +28,29 @@ func TestReminderNamesThePerSessionBatchFile(t *testing.T) {
 		}
 	}
 }
+
+func TestReminderHandsOverTheCommitGateCommands(t *testing.T) {
+	pending(t)
+	for _, want := range []string{"`! commit-gate approve -F /tmp/cg-batch-<repo>-<sid>`", "commit-gate approve-push"} {
+		if !strings.Contains(MsgReminder, want) {
+			t.Errorf("reminder should name %q: %q", want, MsgReminder)
+		}
+	}
+	for _, old := range []string{"! approve -F", "! approve-push"} {
+		if strings.Contains(MsgReminder, old) {
+			t.Errorf("reminder still names the old command %q: %q", old, MsgReminder)
+		}
+	}
+}
+
+func TestTheHumanOnlyDenialNamesTheCommitGateCommands(t *testing.T) {
+	pending(t)
+	for _, want := range []string{"commit-gate approve", "disable"} {
+		if !strings.Contains(MsgHumanOnly, want) {
+			t.Errorf("denial should name %q: %q", want, MsgHumanOnly)
+		}
+	}
+	if strings.Contains(MsgHumanOnly, "gate-disable") {
+		t.Errorf("denial still names the old gate-disable: %q", MsgHumanOnly)
+	}
+}

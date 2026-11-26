@@ -1,5 +1,5 @@
 // manage_test.go covers the five gate-management commands: approve-push,
-// gate-enable, gate-disable, gate-status, clear-approvals. Tests never omit
+// enable, disable, status and clear-approvals. Tests never omit
 // --yes on commands that would otherwise invoke confirm.Confirm, since that
 // would pop a real OS dialog / block on a tty in CI.
 package main_test
@@ -40,12 +40,13 @@ func showToplevel(t *testing.T, repo string) string {
 	return strings.TrimRight(string(out), "\n")
 }
 
-// --- gate-enable ---
+// --- commit-gate enable ---
 
-func TestGateEnableInANeverEnabledRepoSetsNothingLocal(t *testing.T) {
+func TestEnableInANeverEnabledRepoSetsNothingLocal(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "enable")
 	if code != 0 || out != "commit-gate: enabled in "+top+"\n" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, out, errStr)
 	}
@@ -54,42 +55,45 @@ func TestGateEnableInANeverEnabledRepoSetsNothingLocal(t *testing.T) {
 	}
 }
 
-func TestGateEnableClearsAnOverride(t *testing.T) {
+func TestEnableClearsAnOverride(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", t.TempDir())
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable: code=%d stderr=%q", code, errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable: code=%d stderr=%q", code, errStr)
 	}
 	if hp := localHooksPath(t, repo); hp != "" {
 		t.Fatalf("the override must be cleared: %q", hp)
 	}
-	if out, _, _ := runIn(t, repo, "", "commit-gate", "gate-status"); !strings.HasPrefix(out, "commit-gate: enabled\n") {
-		t.Fatalf("gate-status: %q", out)
+	if out, _, _ := runIn(t, repo, "", "commit-gate", "status"); !strings.HasPrefix(out, "commit-gate: enabled\n") {
+		t.Fatalf("commit-gate status: %q", out)
 	}
 }
 
 // An empty repo-local core.hooksPath is an override (it turns hooks off), so
-// gate-enable removes it like any other value.
-func TestGateEnableClearsAnEmptyOverride(t *testing.T) {
+// commit-gate enable removes it like any other value.
+func TestEnableClearsAnEmptyOverride(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", "")
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable: code=%d stderr=%q", code, errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable: code=%d stderr=%q", code, errStr)
 	}
 	if out, err := exec.Command("git", "-C", repo, "config", "--local", "--get-all", "core.hooksPath").Output(); err == nil {
 		t.Fatalf("the empty override must be removed, not replaced: %q", out)
 	}
-	if out, _, _ := runIn(t, repo, "", "commit-gate", "gate-status"); !strings.HasPrefix(out, "commit-gate: enabled\n") {
-		t.Fatalf("gate-status: %q", out)
+	if out, _, _ := runIn(t, repo, "", "commit-gate", "status"); !strings.HasPrefix(out, "commit-gate: enabled\n") {
+		t.Fatalf("commit-gate status: %q", out)
 	}
 }
 
-func TestGateEnableClearsAnOptOut(t *testing.T) {
+func TestEnableClearsAnOptOut(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "commit-gate.disabled", "true")
 	for i := 0; i < 2; i++ { // the second run finds nothing to clear
-		if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-			t.Fatalf("gate-enable #%d: code=%d stderr=%q", i+1, code, errStr)
+		if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+			t.Fatalf("commit-gate enable #%d: code=%d stderr=%q", i+1, code, errStr)
 		}
 	}
 	if v := gitGetConfig(t, repo, "commit-gate.disabled"); v != "" {
@@ -100,37 +104,40 @@ func TestGateEnableClearsAnOptOut(t *testing.T) {
 	}
 }
 
-// An opt-out from a scope gate-enable doesn't clear leaves the repo opted
-// out, so gate-enable must not report it enabled.
-func TestGateEnableReportsAnOptOutItCannotClear(t *testing.T) {
+// An opt-out from a scope commit-gate enable doesn't clear leaves the repo opted
+// out, so commit-gate enable must not report it enabled.
+func TestEnableReportsAnOptOutItCannotClear(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	t.Setenv("GIT_CONFIG_COUNT", "1") // git -c commit-gate.disabled=true
 	t.Setenv("GIT_CONFIG_KEY_0", "commit-gate.disabled")
 	t.Setenv("GIT_CONFIG_VALUE_0", "true")
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "enable")
 	want := "commit-gate: commit-gate.disabled is still true, from command config\n"
 	if code != 1 || errStr != want {
 		t.Fatalf("code=%d stdout=%q\ngot:  %q\nwant: %q", code, out, errStr, want)
 	}
 }
 
-func TestGateEnableRefusesWithoutTheGlobalGate(t *testing.T) {
+func TestEnableRefusesWithoutTheGlobalGate(t *testing.T) {
+	pending(t)
 	noGlobalGate(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", liveHooks(t)) // enabled repo by repo
-	_, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable")
+	_, errStr, code := runIn(t, repo, "", "commit-gate", "enable")
 	want := "commit-gate: the global core.hooksPath is unset; to gate every repo: git config --global core.hooksPath " + liveHooks(t) + "\n"
 	if code != 1 || errStr != want {
 		t.Fatalf("code=%d\ngot:  %q\nwant: %q", code, errStr, want)
 	}
 	if hp := localHooksPath(t, repo); hp != liveHooks(t) {
-		t.Fatalf("a refused gate-enable must change nothing: %q", hp)
+		t.Fatalf("a refused commit-gate enable must change nothing: %q", hp)
 	}
 }
 
-func TestGateEnableNonRepoDies(t *testing.T) {
+func TestEnableNonRepoDies(t *testing.T) {
+	pending(t)
 	dir := t.TempDir()
-	_, errStr, code := runIn(t, dir, "", "commit-gate", "gate-enable")
+	_, errStr, code := runIn(t, dir, "", "commit-gate", "enable")
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
@@ -140,15 +147,16 @@ func TestGateEnableNonRepoDies(t *testing.T) {
 	}
 }
 
-// --- gate-disable ---
+// --- commit-gate disable ---
 
-func TestGateDisableHappyPath(t *testing.T) {
+func TestDisableHappyPath(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-disable", "--yes")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "disable", "--yes")
 	if code != 0 {
-		t.Fatalf("gate-disable failed: code=%d stderr=%q", code, errStr)
+		t.Fatalf("commit-gate disable failed: code=%d stderr=%q", code, errStr)
 	}
 	want := "commit-gate: disabled (opted out) for " + top + "\n"
 	if out != want {
@@ -159,9 +167,10 @@ func TestGateDisableHappyPath(t *testing.T) {
 	}
 }
 
-func TestGateDisableNonRepoDies(t *testing.T) {
+func TestDisableNonRepoDies(t *testing.T) {
+	pending(t)
 	dir := t.TempDir()
-	_, errStr, code := runIn(t, dir, "", "commit-gate", "gate-disable", "--yes")
+	_, errStr, code := runIn(t, dir, "", "commit-gate", "disable", "--yes")
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
@@ -171,7 +180,7 @@ func TestGateDisableNonRepoDies(t *testing.T) {
 	}
 }
 
-// --- gate-status ---
+// --- commit-gate status ---
 
 // liveHooks is the hook directory the test binary resolves as its own.
 func liveHooks(t *testing.T) string {
@@ -183,68 +192,74 @@ func liveHooks(t *testing.T) string {
 	return h
 }
 
-func TestGateStatusUngatedNamesTheFix(t *testing.T) {
+func TestStatusUngatedNamesTheFix(t *testing.T) {
+	pending(t)
 	noGlobalGate(t)
 	repo := mkrepoT(t)
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	want := "commit-gate: ungated (the global core.hooksPath is unset; to gate every repo: git config --global core.hooksPath " + liveHooks(t) + ")\n"
 	if code != 0 || out != want {
 		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}
 }
 
-func TestGateStatusOverriddenNamesTheDirectory(t *testing.T) {
+func TestStatusOverriddenNamesTheDirectory(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	elsewhere := t.TempDir()
 	gitSetConfig(t, repo, "core.hooksPath", elsewhere)
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
-	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + "; gate-enable clears it, gate-disable opts out)\n"
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + "; commit-gate enable clears it, commit-gate disable opts out)\n"
 	if code != 0 || out != want {
 		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}
 }
 
-func TestGateStatusEmptyLocalHooksPathIsOverridden(t *testing.T) {
+func TestStatusEmptyLocalHooksPathIsOverridden(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", "")
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
-	want := "commit-gate: overridden (core.hooksPath is empty; gate-enable clears it, gate-disable opts out)\n"
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
+	want := "commit-gate: overridden (core.hooksPath is empty; commit-gate enable clears it, commit-gate disable opts out)\n"
 	if code != 0 || out != want {
 		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}
 }
 
-func TestGateStatusCommandScopeIsOverridden(t *testing.T) {
+func TestStatusCommandScopeIsOverridden(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	elsewhere := t.TempDir()
 	t.Setenv("GIT_CONFIG_COUNT", "1")
 	t.Setenv("GIT_CONFIG_KEY_0", "core.hooksPath")
 	t.Setenv("GIT_CONFIG_VALUE_0", elsewhere)
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
-	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from command config: git -c or GIT_CONFIG_* in the environment; removing it from the environment clears it, gate-disable opts out)\n"
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from command config: git -c or GIT_CONFIG_* in the environment; removing it from the environment clears it, commit-gate disable opts out)\n"
 	if code != 0 || out != want {
 		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}
 }
 
 // A worktree-scope override names the command that clears it, as
-// sessioncheck does: gate-enable clears only a repo-local one.
-func TestGateStatusWorktreeScopeNamesItsRemedy(t *testing.T) {
+// sessioncheck does: commit-gate enable clears only a repo-local one.
+func TestStatusWorktreeScopeNamesItsRemedy(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	elsewhere := t.TempDir()
 	gitSetConfig(t, repo, "extensions.worktreeConfig", "true")
 	gitSetConfig(t, repo, "--worktree", "core.hooksPath", elsewhere)
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
-	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from worktree config; git config --worktree --unset core.hooksPath clears it, gate-disable opts out)\n"
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
+	want := "commit-gate: overridden (core.hooksPath is " + elsewhere + ", from worktree config; git config --worktree --unset core.hooksPath clears it, commit-gate disable opts out)\n"
 	if code != 0 || out != want {
 		t.Fatalf("code=%d stderr=%q\ngot:  %q\nwant: %q", code, errStr, out, want)
 	}
 }
 
-func TestGateStatusUnreadableHooksPathSaysWhy(t *testing.T) {
+func TestStatusUnreadableHooksPathSaysWhy(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "core.hooksPath", "~nosuchuser-commit-gate/hooks")
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	if code != 1 || out != "" ||
 		!strings.HasPrefix(errStr, "commit-gate: cannot read core.hooksPath: ") ||
 		!strings.Contains(errStr, "~nosuchuser-commit-gate/hooks") {
@@ -252,26 +267,28 @@ func TestGateStatusUnreadableHooksPathSaysWhy(t *testing.T) {
 	}
 }
 
-func TestGateStatusDisabled(t *testing.T) {
+func TestStatusDisabled(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	gitSetConfig(t, repo, "commit-gate.disabled", "true")
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	if code != 0 {
-		t.Fatalf("gate-status failed: code=%d stderr=%q", code, errStr)
+		t.Fatalf("commit-gate status failed: code=%d stderr=%q", code, errStr)
 	}
 	if out != "commit-gate: opted-out\n" {
 		t.Fatalf("stdout mismatch: %q", out)
 	}
 }
 
-func TestGateStatusEnabledNoneAndNoToken(t *testing.T) {
+func TestStatusEnabledNoneAndNoToken(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable setup failed: %s", errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable setup failed: %s", errStr)
 	}
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	if code != 0 {
-		t.Fatalf("gate-status failed: code=%d stderr=%q", code, errStr)
+		t.Fatalf("commit-gate status failed: code=%d stderr=%q", code, errStr)
 	}
 	want := "commit-gate: enabled\napproved (pending): none\npush token: none\n"
 	if out != want {
@@ -279,10 +296,11 @@ func TestGateStatusEnabledNoneAndNoToken(t *testing.T) {
 	}
 }
 
-func TestGateStatusEnabledWithApprovalsAndToken(t *testing.T) {
+func TestStatusEnabledWithApprovalsAndToken(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable setup failed: %s", errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable setup failed: %s", errStr)
 	}
 	r, err := gatestate.Open(repo)
 	if err != nil {
@@ -295,9 +313,9 @@ func TestGateStatusEnabledWithApprovalsAndToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, errStr, code := runIn(t, repo, "", "commit-gate", "gate-status")
+	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	if code != 0 {
-		t.Fatalf("gate-status failed: code=%d stderr=%q", code, errStr)
+		t.Fatalf("commit-gate status failed: code=%d stderr=%q", code, errStr)
 	}
 	want := "commit-gate: enabled\napproved (pending):\n  feat: pending one\npush token: present\n"
 	if out != want {
@@ -305,9 +323,10 @@ func TestGateStatusEnabledWithApprovalsAndToken(t *testing.T) {
 	}
 }
 
-func TestGateStatusNonRepoDies(t *testing.T) {
+func TestStatusNonRepoDies(t *testing.T) {
+	pending(t)
 	dir := t.TempDir()
-	_, errStr, code := runIn(t, dir, "", "commit-gate", "gate-status")
+	_, errStr, code := runIn(t, dir, "", "commit-gate", "status")
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
@@ -320,9 +339,10 @@ func TestGateStatusNonRepoDies(t *testing.T) {
 // --- clear-approvals ---
 
 func TestClearApprovalsHappyPath(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable setup failed: %s", errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable setup failed: %s", errStr)
 	}
 	r, err := gatestate.Open(repo)
 	if err != nil {
@@ -383,9 +403,10 @@ func TestClearApprovalsNonRepoDies(t *testing.T) {
 // --- approve-push ---
 
 func TestApprovePushHappyPath(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable setup failed: %s", errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable setup failed: %s", errStr)
 	}
 
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "approve-push", "--yes")
@@ -406,22 +427,24 @@ func TestApprovePushHappyPath(t *testing.T) {
 }
 
 func TestApprovePushNotEnabledDies(t *testing.T) {
+	pending(t)
 	noGlobalGate(t)
 	repo := mkrepoT(t)
 	_, errStr, code := runIn(t, repo, "", "commit-gate", "approve-push", "--yes")
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
-	want := "commit-gate: repo not enabled — run: gate-enable\n"
+	want := "commit-gate: repo not enabled — run: commit-gate enable\n"
 	if errStr != want {
 		t.Fatalf("stderr mismatch:\ngot:  %q\nwant: %q", errStr, want)
 	}
 }
 
 func TestApprovePushDisabledRepoDies(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
-	if _, errStr, code := runIn(t, repo, "", "commit-gate", "gate-enable"); code != 0 {
-		t.Fatalf("gate-enable setup failed: %s", errStr)
+	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
+		t.Fatalf("commit-gate enable setup failed: %s", errStr)
 	}
 	gitSetConfig(t, repo, "commit-gate.disabled", "true")
 
@@ -429,7 +452,7 @@ func TestApprovePushDisabledRepoDies(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
-	want := "commit-gate: repo is opted out (commit-gate.disabled); run: gate-enable\n"
+	want := "commit-gate: repo is opted out (commit-gate.disabled); run: commit-gate enable\n"
 	if errStr != want {
 		t.Fatalf("stderr mismatch:\ngot:  %q\nwant: %q", errStr, want)
 	}

@@ -90,7 +90,8 @@ func mkrepoT(t *testing.T) string {
 }
 
 func TestPrecheckDenyAndSilentAndExit0(t *testing.T) {
-	out, _, code := run(t, `{"tool_name":"Bash","tool_input":{"command":"approve"}}`, "precheck")
+	pending(t)
+	out, _, code := run(t, `{"tool_name":"Bash","tool_input":{"command":"commit-gate approve"}}`, "precheck")
 	if code != 0 || !strings.Contains(out, `"permissionDecision":"deny"`) {
 		t.Fatalf("deny: code=%d out=%q", code, out)
 	}
@@ -172,17 +173,19 @@ func TestSessioncheckReportsAForeignGlobalHooksPathOutsideAnyRepo(t *testing.T) 
 }
 
 func TestSessioncheckReportsAnOverriddenRepo(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	elsewhere := t.TempDir()
 	gitSetConfig(t, repo, "core.hooksPath", elsewhere)
 	_, so := runSessioncheck(t, repo)
-	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ". To gate it: gate-enable (clears that core.hooksPath). To opt out: gate-disable"
+	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ". To gate it: commit-gate enable (clears that core.hooksPath). To opt out: commit-gate disable"
 	if so.SystemMessage != want {
 		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
 	}
 	ctx := so.HookSpecificOutput.AdditionalContext
-	if !strings.Contains(ctx, "do not commit or push here") || !strings.Contains(ctx, "explicit yes") {
+	if !strings.Contains(ctx, "do not commit or push here") || !strings.Contains(ctx, "explicit yes") ||
+		!strings.Contains(ctx, "`commit-gate enable` gates it") {
 		t.Fatalf("additionalContext: %q", ctx)
 	}
 	if hp := localHooksPath(t, repo); hp != elsewhere {
@@ -221,14 +224,15 @@ func noGlobalGate(t *testing.T) {
 	t.Setenv("GIT_CONFIG_GLOBAL", empty)
 }
 
-// An empty repo-local core.hooksPath is named as empty, as gate-status names
+// An empty repo-local core.hooksPath is named as empty, as commit-gate status names
 // it, not printed as a blank.
 func TestSessioncheckNamesAnEmptyOverride(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	gitSetConfig(t, repo, "core.hooksPath", "")
 	_, so := runSessioncheck(t, repo)
-	want := "commit-gate: " + top + " is ungated: its core.hooksPath is empty. To gate it: gate-enable (clears that core.hooksPath). To opt out: gate-disable"
+	want := "commit-gate: " + top + " is ungated: its core.hooksPath is empty. To gate it: commit-gate enable (clears that core.hooksPath). To opt out: commit-gate disable"
 	if so.SystemMessage != want {
 		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
 	}
@@ -238,21 +242,22 @@ func TestSessioncheckNamesAnEmptyOverride(t *testing.T) {
 	}
 }
 
-// A worktree-scope override is not repo-local and gate-enable doesn't clear
+// A worktree-scope override is not repo-local and commit-gate enable doesn't clear
 // it: the notice names its scope and the command that does.
 func TestSessioncheckNamesAWorktreeOverrideAndItsRemedy(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	elsewhere := t.TempDir()
 	gitSetConfig(t, repo, "extensions.worktreeConfig", "true")
 	gitSetConfig(t, repo, "--worktree", "core.hooksPath", elsewhere)
 	_, so := runSessioncheck(t, repo)
-	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ", from worktree config. To gate it: git config --worktree --unset core.hooksPath. To opt out: gate-disable"
+	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ", from worktree config. To gate it: git config --worktree --unset core.hooksPath. To opt out: commit-gate disable"
 	if so.SystemMessage != want {
 		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
 	}
 	ctx := so.HookSpecificOutput.AdditionalContext
-	if strings.Contains(ctx, "repo-local") || strings.Contains(ctx, "`gate-enable` gates it") ||
+	if strings.Contains(ctx, "repo-local") || strings.Contains(ctx, "`commit-gate enable` gates it") ||
 		!strings.Contains(ctx, "do not commit or push here") || !strings.Contains(ctx, "explicit yes") {
 		t.Fatalf("additionalContext: %q", ctx)
 	}
@@ -261,6 +266,7 @@ func TestSessioncheckNamesAWorktreeOverrideAndItsRemedy(t *testing.T) {
 // A command-scope override comes from the session's environment (git -c
 // passed down, GIT_CONFIG_*): no config file holds it.
 func TestSessioncheckNamesACommandScopeOverride(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	top := showToplevel(t, repo)
 	elsewhere := t.TempDir()
@@ -268,12 +274,12 @@ func TestSessioncheckNamesACommandScopeOverride(t *testing.T) {
 	t.Setenv("GIT_CONFIG_KEY_0", "core.hooksPath")
 	t.Setenv("GIT_CONFIG_VALUE_0", elsewhere)
 	_, so := runSessioncheck(t, repo)
-	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ", from command config: git -c or GIT_CONFIG_* in the environment. To gate it: remove it from the environment Claude Code runs in. To opt out: gate-disable"
+	want := "commit-gate: " + top + " is ungated: its core.hooksPath is " + elsewhere + ", from command config: git -c or GIT_CONFIG_* in the environment. To gate it: remove it from the environment Claude Code runs in. To opt out: commit-gate disable"
 	if so.SystemMessage != want {
 		t.Fatalf("systemMessage:\ngot:  %q\nwant: %q", so.SystemMessage, want)
 	}
 	ctx := so.HookSpecificOutput.AdditionalContext
-	if strings.Contains(ctx, "repo-local") || strings.Contains(ctx, "`gate-enable` gates it") ||
+	if strings.Contains(ctx, "repo-local") || strings.Contains(ctx, "`commit-gate enable` gates it") ||
 		!strings.Contains(ctx, "do not commit or push here") {
 		t.Fatalf("additionalContext: %q", ctx)
 	}

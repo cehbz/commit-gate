@@ -150,6 +150,7 @@ func TestApproveDifferentRepoFindsNothing(t *testing.T) {
 // (f) an existing push token is invalidated (removed) with the exact
 // message when new approvals are recorded.
 func TestApprovePushTokenInvalidated(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 
@@ -165,7 +166,7 @@ func TestApprovePushTokenInvalidated(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("approve failed: code=%d stderr=%q", code, errStr)
 	}
-	want := "commit-gate: push token invalidated (approvals postdate it — re-run approve-push)"
+	want := "commit-gate: push token invalidated (approvals postdate it — re-run commit-gate approve-push)"
 	if !strings.Contains(out, want) {
 		t.Fatalf("missing invalidation message, got %q", out)
 	}
@@ -177,6 +178,7 @@ func TestApprovePushTokenInvalidated(t *testing.T) {
 // (g) an ungated repo (no core.hooksPath set) dies with the exact
 // "repo not enabled" message, exit 1.
 func TestApproveUngatedRepoDies(t *testing.T) {
+	pending(t)
 	noGlobalGate(t)
 	repo := mkrepoT(t)
 
@@ -184,7 +186,7 @@ func TestApproveUngatedRepoDies(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d (stderr=%q)", code, errStr)
 	}
-	want := "commit-gate: repo not enabled — run: gate-enable\n"
+	want := "commit-gate: repo not enabled — run: commit-gate enable\n"
 	if errStr != want {
 		t.Fatalf("stderr mismatch:\ngot:  %q\nwant: %q", errStr, want)
 	}
@@ -193,6 +195,7 @@ func TestApproveUngatedRepoDies(t *testing.T) {
 // Additional die-path coverage beyond the mandated (a)-(g): opted-out repo,
 // non-repo directory, and bad usage all die with the exact expected text.
 func TestApproveDisabledRepoDies(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 	if out, err := exec.Command("git", "-C", repo, "config", "commit-gate.disabled", "true").CombinedOutput(); err != nil {
@@ -202,7 +205,7 @@ func TestApproveDisabledRepoDies(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
-	want := "commit-gate: repo is opted out (commit-gate.disabled); run: gate-enable\n"
+	want := "commit-gate: repo is opted out (commit-gate.disabled); run: commit-gate enable\n"
 	if errStr != want {
 		t.Fatalf("stderr mismatch:\ngot:  %q\nwant: %q", errStr, want)
 	}
@@ -221,13 +224,14 @@ func TestApproveNonRepoDies(t *testing.T) {
 }
 
 func TestApproveBadUsageDies(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	setHooksPath(t, repo)
 	_, errStr, code := runIn(t, repo, "", "commit-gate", "approve", "--bogus")
 	if code != 1 {
 		t.Fatalf("want exit 1, got %d", code)
 	}
-	want := "commit-gate: usage: approve [-F file | --plan plan.md] [--yes]   (bare: reads the preloaded pending file)\n"
+	want := "commit-gate: usage: commit-gate approve [-F file | --plan plan.md] [--yes]   (bare: reads the preloaded pending file)\n"
 	if errStr != want {
 		t.Fatalf("stderr mismatch:\ngot:  %q\nwant: %q", errStr, want)
 	}

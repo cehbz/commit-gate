@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
-DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"
-PC="$DIR/../precheck"; GH="$(cd "$DIR/../hooks" && pwd)"; BIN="$DIR/../bin"
+DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/helpers.sh"; . "$DIR/pending.sh"
+PC="$DIR/../precheck"; GH="$(cd "$DIR/../hooks" && pwd)"
 
 run() {  # $1=command, $2=cwd (optional)
   if [ -n "${2:-}" ]; then
@@ -14,7 +14,7 @@ denies()  { out="$(run "$1" "${2:-}")"; printf '%s' "$out" | grep -q '"permissio
 silent()  { out="$(run "$1" "${2:-}")"; [ -z "$out" ]; }
 reminds() { out="$(run "$1" "${2:-}")"; printf '%s' "$out" | grep -q '"permissionDecision":"allow"'; }
 
-gated="$(mkrepo)"; ( cd "$gated" && "$BIN/gate-enable" >/dev/null )
+gated="$(mkrepo)"   # enabled: the global core.hooksPath names the gate
 ungated="$(mkrepo)"; git -C "$ungated" config commit-gate.disabled true
 
 # check 1: --no-verify / -n, ANDed with a git-commit invocation
@@ -52,24 +52,43 @@ silent 'cat <<EOF
 rm -rf .git/commit-gate
 EOF' "$ungated" || fail 'heredoc content false-denied'
 
-# check 5: approve / approve-push / gate-disable, anchored to a command position
-denies "approve --yes -F /tmp/x" || fail 'approve not denied'
-denies "approve-push --yes" || fail 'approve-push not denied'
-denies "gate-disable" || fail 'gate-disable not denied'
-denies "echo hi && approve" || fail 'chained after && not denied'
-denies "approve; echo done" || fail 'chained before ; not denied'
-denies "foo&&approve" || fail 'chained, no space after && not denied'
-denies "approve;echo x" || fail 'no space after ; not denied'
-denies "approve&echo x" || fail 'no space after & not denied'
-denies "approve|less" || fail 'no space after | not denied'
-denies "gate-disable;rm -rf /" || fail 'gate-disable, no space after ; not denied'
-silent "gate-enable" "$ungated" || fail 'gate-enable false-denied'
-silent "git log --grep approve" "$ungated" || fail 'approve-as-arg false-denied'
-silent "grep gate-disable notes.txt" "$ungated" || fail 'gate-disable-as-arg false-denied'
-silent "clear-approvals" "$ungated" || fail 'clear-approvals false-denied'
+# check 5: commit-gate approve / approve-push / disable, anchored to a command position
+precheck_denies_commit_gate_approve_approve_push_and_disable() {
+  denies "commit-gate approve --yes -F /tmp/x" || fail 'approve not denied'
+  denies "commit-gate approve-push --yes" || fail 'approve-push not denied'
+  denies "commit-gate disable" || fail 'disable not denied'
+  denies "echo hi && commit-gate approve" || fail 'chained after && not denied'
+  denies "commit-gate approve; echo done" || fail 'chained before ; not denied'
+  denies "foo&&commit-gate approve" || fail 'chained, no space after && not denied'
+  denies "commit-gate approve;echo x" || fail 'no space after ; not denied'
+  denies "commit-gate approve&echo x" || fail 'no space after & not denied'
+  denies "commit-gate approve|less" || fail 'no space after | not denied'
+  denies "commit-gate disable;rm -rf /" || fail 'disable, no space after ; not denied'
+  denies "$(printf 'foo\ncommit-gate disable')" || fail 'newline-separated disable not denied'
+  denies "bash -c 'commit-gate approve --yes'" || fail 'approve inside -c not denied'
+  denies "/Users/x/.local/bin/commit-gate approve --yes" || fail 'commit-gate by its path not denied'
+  denies "$DIR/../commit-gate approve-push" || fail 'commit-gate by a relative path not denied'
+}
+precheck_refuses_a_computed_commit_gate_command_word() {
+  denies 'commit-gate "$c"' || fail 'computed command word not refused'
+  denies 'commit-gate $(echo approve) --yes' || fail 'substituted command word not refused'
+}
+precheck_no_longer_denies_the_old_command_names() {
+  silent "approve --yes -F /tmp/x" "$ungated" || fail 'old approve still denied'
+  silent "approve-push --yes" "$ungated" || fail 'old approve-push still denied'
+  silent "gate-disable" "$ungated" || fail 'old gate-disable still denied'
+}
+pending precheck_denies_commit_gate_approve_approve_push_and_disable
+pending precheck_refuses_a_computed_commit_gate_command_word
+pending precheck_no_longer_denies_the_old_command_names
+silent "commit-gate enable" "$ungated" || fail 'enable false-denied'
+silent "commit-gate status" "$ungated" || fail 'status false-denied'
+silent "commit-gate clear-approvals" "$ungated" || fail 'clear-approvals false-denied'
+silent "commit-gate canonical < msg" "$ungated" || fail 'canonical false-denied'
+silent "commit-gate hook-names" "$ungated" || fail 'hook-names false-denied'
+silent "git log --grep 'commit-gate approve'" "$ungated" || fail 'approve-as-arg false-denied'
+silent "grep 'commit-gate disable' notes.txt" "$ungated" || fail 'disable-as-arg false-denied'
 silent "disapprove;foo" "$ungated" || fail 'disapprove false-denied even adjacent to ;'
-denies "$(printf 'foo\ngate-disable')" || fail 'newline-separated gate-disable not denied'
-denies "bash -c 'approve --yes'" || fail 'approve inside -c not denied'
 denies 'echo "unclosed' || fail 'parse failure must deny (fail closed)'
 
 # check 6: reminder on a real git commit/push, only in a gated repo
