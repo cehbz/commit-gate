@@ -2,14 +2,39 @@
 # make deploy in a clone builds the target from a fresh copy of the public
 # repository and puts it live on a host, under one deploy authorization
 # (DESIGN.md, Deploy, Deploy authorization). A real host can't be reached from
-# a test: each case deploys to the Mac, host mac, whose install directory is
-# under a temporary home, with a scratch repository as the public address.
+# a test: a case deploys to the Mac, host mac, whose install directory is
+# under a temporary home, with a scratch repository as the public address;
+# any other host is a second temporary home, reached through stub ssh and scp
+# first on PATH, and a host with no home there is unreachable.
 set -eu
 DIR="$(cd "$(dirname "$0")" && pwd -P)"; . "$DIR/helpers.sh"; . "$DIR/pending.sh"; . "$DIR/scratch.sh"
 CG="$DIR/../commit-gate"
 tmp="$(mktemp -d)"; tmp="$(cd "$tmp" && pwd -P)"; trap 'chmod -R u+w "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
 if [ "$(uname -s)" != Darwin ]; then echo "skip test_deploy: the deploy cases deliver to host mac"; exit 0; fi
 keep_go_caches
+
+# The stub ssh and scp, in $tmp/bin: host <name>'s home is $tmp/remotes/<name>.
+# ssh logs its arguments to $tmp/ssh.log and runs its command in that home as
+# a login there would, with that home's global git config; scp copies a file
+# to a path under that home.
+mkdir "$tmp/bin" "$tmp/remotes"; : > "$tmp/ssh.log"
+cat > "$tmp/bin/ssh" <<'EOF'
+#!/bin/sh
+tmp="$(cd "$(dirname "$0")/.." && pwd -P)"
+echo "$*" >> "$tmp/ssh.log"
+home="$tmp/remotes/$1"; shift
+[ -d "$home" ] || { echo "ssh: Could not resolve hostname" >&2; exit 255; }
+cd "$home" && HOME="$home" GIT_CONFIG_GLOBAL="$home/.gitconfig" exec sh -c "$*"
+EOF
+cat > "$tmp/bin/scp" <<'EOF'
+#!/bin/sh
+tmp="$(cd "$(dirname "$0")/.." && pwd -P)"
+[ "$1" != -q ] || shift
+home="$tmp/remotes/${2%%:*}"
+[ -d "$home" ] || { echo "ssh: Could not resolve hostname" >&2; exit 255; }
+cp "$1" "$home/${2#*:}"
+EOF
+chmod +x "$tmp/bin/ssh" "$tmp/bin/scp"
 
 # prepare, on first use: pub, the stand-in public repository, holding a
 # committed copy of the working tree at c1, released as v1.0.0.
@@ -23,25 +48,42 @@ prepare() {
 
 # new_host: a temporary home in $H for host mac, with no gate, whose global
 # git config points the public address at pub; and a clone of pub in $clone.
-# L is the host's install directory.
+# L is the host's install directory. The stub ssh's log starts empty.
 new_host() {
-  prepare; scratch_home "$tmp"; L="$H/.local/libexec/commit-gate"
+  prepare; scratch_home "$tmp"; L="$H/.local/libexec/commit-gate"; : > "$tmp/ssh.log"
   printf '[url "%s"]\n\tinsteadOf = %s\n' "$pub" "$PUBLIC_URL" > "$H/.gitconfig"
   clone="$(mktemp -d "$tmp/clone.XXXXXX")"; as_host git clone -q "$pub" "$clone"
+}
+# new_remote <host>: a temporary home for host, reached through the stub ssh,
+# with no gate and the public address pointed at pub, in $R.
+new_remote() {
+  R="$tmp/remotes/$1"; mkdir "$R"
+  printf '[url "%s"]\n\tinsteadOf = %s\n' "$pub" "$PUBLIC_URL" > "$R/.gitconfig"
 }
 # clone_state: the clone's head, changes and gate state.
 clone_state() { git -C "$clone" rev-parse HEAD; git -C "$clone" status --porcelain; ls -A "$clone/.git/commit-gate" 2>/dev/null || true; }
 as_host() { HOME="$H" GIT_CONFIG_GLOBAL="$H/.gitconfig" "$@"; }
-deploy() { ( cd "$clone" && as_host make -s deploy "$@" ) > "$tmp/out" 2>&1; }
+deploy() { ( cd "$clone" && PATH="$tmp/bin:$PATH" as_host make -s deploy "$@" ) > "$tmp/out" 2>&1; }
 # authorize_deploy: the user's approve-deploy in the clone, which the gate
 # under test enables through the suite's global config.
 authorize_deploy() { ( cd "$clone" && HOME="$H" "$CG" approve-deploy --yes ) >/dev/null; }
 
-# assert_target_live: the host's live build is the target's, from unchanged source.
+# assert_target_live [<install dir>]: the host's live build, in L unless
+# named, is the target's, from unchanged source.
 assert_target_live() {
-  [ -x "$L/commit-gate" ] || fail "no live build on the host: $(cat "$tmp/out")"
-  assert_eq "$(build_commit "$L/commit-gate")" "$c1" "the live build's commit"
-  assert_eq "$(build_dirty "$L/commit-gate")" false 'the live build is from changed source'
+  local l="${1:-$L}"
+  [ -x "$l/commit-gate" ] || fail "no live build in $l: $(cat "$tmp/out")"
+  assert_eq "$(build_commit "$l/commit-gate")" "$c1" "the live build's commit"
+  assert_eq "$(build_dirty "$l/commit-gate")" false 'the live build is from changed source'
+}
+
+# assert_refused_keeping_the_authorization <what>: deploy without a host
+# refuses, reaches no host and leaves the deploy authorization live.
+assert_refused_keeping_the_authorization() {
+  if deploy; then fail "deploy went through: $1"; fi
+  [ -e "$clone/.git/commit-gate/deploy-token" ] || fail "the refusal consumed the deploy authorization: $1: $(cat "$tmp/out")"
+  [ ! -e "$L" ] || fail "a refused deploy installed on the Mac: $1"
+  assert_eq "$(cat "$tmp/ssh.log")" '' "a refused deploy reached a host: $1"
 }
 
 # assert_deploy_refused: deploy refuses, naming commit-gate approve-deploy.
@@ -107,6 +149,40 @@ deploy_without_a_host_deploys_every_host_on_the_host_list() {
   assert_target_live
 }
 
+the_host_list_skips_comment_lines_and_blank_lines() {
+  new_host; printf '# the hosts\n\nmac\n\n#example\n' > "$clone/deploy.hosts"
+  authorize_deploy
+  deploy || fail "deploy of a host list with comments failed: $(cat "$tmp/out")"
+  assert_target_live
+  assert_eq "$(cat "$tmp/ssh.log")" '' 'deploy reached a host other than mac'
+}
+
+deploy_without_a_host_or_a_host_list_refuses_and_the_authorization_stays_live() {
+  new_host; authorize_deploy
+  assert_refused_keeping_the_authorization 'no HOST and no host list'
+}
+
+deploy_of_a_host_list_naming_no_host_refuses_and_the_authorization_stays_live() {
+  new_host; printf '# the hosts\n\n#mac\n\n' > "$clone/deploy.hosts"
+  authorize_deploy
+  assert_refused_keeping_the_authorization 'a host list of comments and blank lines'
+}
+
+deploy_puts_the_target_live_on_a_host_other_than_the_mac() {
+  new_host; new_remote example; authorize_deploy
+  deploy HOST=example || fail "deploy to host example failed: $(cat "$tmp/out")"
+  assert_target_live "$R/.local/libexec/commit-gate"
+  [ "$R/.local/bin/commit-gate" -ef "$R/.local/libexec/commit-gate/commit-gate" ] || fail "commit-gate on example's PATH is not the live build"
+  [ ! -e "$L" ] || fail 'deploy to host example installed on the Mac'
+}
+
+a_failing_host_leaves_the_other_live_and_the_deploy_exits_non_zero() {
+  new_host; new_remote remote1; printf 'down\nremote1\n' > "$clone/deploy.hosts"
+  authorize_deploy
+  if deploy; then fail 'deploy exited zero though host down is unreachable'; fi
+  assert_target_live "$R/.local/libexec/commit-gate"
+}
+
 the_host_list_is_a_file_git_ignores() {
   new_host; printf 'mac\n' > "$clone/deploy.hosts"
   ( cd "$clone" && as_host git check-ignore -q deploy.hosts ) || fail 'git does not ignore the host list deploy.hosts'
@@ -119,5 +195,10 @@ deploy_consumes_its_deploy_authorization
 deploy_consumes_its_deploy_authorization_when_the_host_fails
 deploy_builds_the_target_from_a_fresh_copy_whatever_the_clone_holds
 deploy_without_a_host_deploys_every_host_on_the_host_list
+pending the_host_list_skips_comment_lines_and_blank_lines
+deploy_without_a_host_or_a_host_list_refuses_and_the_authorization_stays_live
+pending deploy_of_a_host_list_naming_no_host_refuses_and_the_authorization_stays_live
+deploy_puts_the_target_live_on_a_host_other_than_the_mac
+a_failing_host_leaves_the_other_live_and_the_deploy_exits_non_zero
 the_host_list_is_a_file_git_ignores
 echo "OK: test_deploy"

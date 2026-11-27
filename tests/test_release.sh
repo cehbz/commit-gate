@@ -100,6 +100,16 @@ release_refuses_uncommitted_changes() {
   assert_release_refused 'a staged change' VERSION=v1.0.0
 }
 
+release_refuses_on_a_branch_other_than_main() {
+  new_repos; git -C "$clone" checkout -q -b topic; new_commit 'feat: on topic'; authorize_push
+  assert_release_refused 'the current branch is topic' VERSION=v1.0.0
+}
+
+release_refuses_on_a_detached_head() {
+  new_repos; new_commit 'feat: second'; git -C "$clone" checkout -q --detach; authorize_push
+  assert_release_refused 'a detached head' VERSION=v1.0.0
+}
+
 release_refuses_when_the_remote_has_commits_the_head_lacks() {
   new_repos; other="$(mktemp -d "$tmp/other.XXXXXX")"
   git clone -q "$remote" "$other"; echo elsewhere >> "$other/CHANGES"; scratch_commit "$other" 'feat: elsewhere'
@@ -163,6 +173,8 @@ release_without_a_push_authorization_lands_nothing_and_makes_no_tag
 a_release_refused_for_its_push_goes_through_once_the_push_is_authorized
 a_release_whose_push_the_remote_rejects_makes_no_tag_anywhere
 release_refuses_uncommitted_changes
+pending release_refuses_on_a_branch_other_than_main
+pending release_refuses_on_a_detached_head
 release_refuses_when_the_remote_has_commits_the_head_lacks
 release_refuses_when_the_head_is_the_targets_commit
 release_refuses_while_the_tree_holds_a_pending_go_test
