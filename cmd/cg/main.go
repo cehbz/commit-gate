@@ -81,6 +81,8 @@ func runHook(name string, args []string) int {
 	return unknownCommand(name)
 }
 
+// unknownCommand reports an unknown command word or link name with the usage
+// line and returns exit status 2.
 func unknownCommand(name string) int {
 	fmt.Fprintf(os.Stderr, "commit-gate: unknown command %q\n%s\n", name, commandUsage)
 	return 2

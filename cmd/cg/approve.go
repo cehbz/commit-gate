@@ -100,7 +100,7 @@ func cmdApprove(args []string) int {
 		return dieApprove("%s", err)
 	}
 
-	// Bare `approve` (no -F/--plan) uses the agent-preloaded pending file if
+	// Bare `commit-gate approve` (no -F/--plan) uses the agent-preloaded pending file if
 	// present, else stdin.
 	consumePending := false
 	if mode == "stdin" {

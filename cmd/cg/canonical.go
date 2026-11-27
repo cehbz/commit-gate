@@ -12,7 +12,7 @@ import (
 	"github.com/cehbz/commit-gate/gatestate"
 )
 
-// cmdCanonical implements the `canonical` subcommand.
+// cmdCanonical implements `commit-gate canonical`.
 func cmdCanonical() int {
 	msg, err := io.ReadAll(os.Stdin)
 	if err != nil {
