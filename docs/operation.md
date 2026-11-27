@@ -28,5 +28,8 @@ Every command is a word after `commit-gate`, the only name the gate puts on PATH
 
 `commit-gate approve`, `approve-push`, `approve-deploy` and `disable` ask for confirmation: a dialog on macOS, a prompt on the terminal elsewhere, so on Linux they need a real terminal. Each refuses when the shell command it was launched from runs anything besides `cd` and `commit-gate`.
 
+## Release
+A release is a `vMAJOR.MINOR.PATCH` tag on the public repository; the highest one names the target, the commit every host should run. When the Mac's clone has commits since the target, the agent proposes the next version by semver (a breaking change to a command or the install raises MAJOR, a new behavior MINOR, a fix PATCH) and runs `make release VERSION=<tag>` in the clone. It pushes the head to origin's `main` and the tag on it in one atomic push, under one `commit-gate approve-push`, and tags the clone once the push lands. It refuses, changing nothing, when the clone has uncommitted changes, when origin's `main` has commits the head lacks, when the head is already the target, while the tree holds pending model-level tests, or when the tag is not above every release tag.
+
 ## Workflow
-The agent commits first. The commit check rejects an unapproved message and prints its subject and hash. The user approves the exact message with `commit-gate approve` in that repo and the agent commits again. For a push, the user runs `commit-gate approve-push` after approving.
+The agent commits first. The commit check rejects an unapproved message and prints its subject and hash. The user approves the exact message with `commit-gate approve` in that repo and the agent commits again. For a push, the user runs `commit-gate approve-push` after approving. To release, the agent runs `make release VERSION=<tag>` first; the gate rejects its push until the user runs `commit-gate approve-push`, which is the user's approval of the version, and the agent runs it again.

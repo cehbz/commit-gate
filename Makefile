@@ -19,9 +19,9 @@ accept: build
 clean:
 	rm -rf $(BUILD)
 
-# Stub: make release VERSION=<tag> (DESIGN.md, Release).
+# make release VERSION=<tag> (DESIGN.md, Release).
 release:
-	@:
+	@go run ./cmd/release "$(VERSION)"
 
 # Stub: make deploy [HOST=<host>] (DESIGN.md, Deploy).
 deploy:
