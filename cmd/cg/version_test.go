@@ -274,7 +274,6 @@ func assertUnknown(t *testing.T, out string, code int) {
 }
 
 func TestVersionReportsABuildFromTheTargetUpToDate(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.0.0", s.c1})
 	out, code := version(t, s.b1)
@@ -282,7 +281,6 @@ func TestVersionReportsABuildFromTheTargetUpToDate(t *testing.T) {
 }
 
 func TestVersionReportsABuildOfAnEarlierReleaseOutOfDateWithTheTwoCommandFix(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.0.0", s.c1}, release{"v1.1.0", s.c2})
 	out, code := version(t, s.b1)
@@ -293,7 +291,6 @@ func TestVersionReportsABuildOfAnEarlierReleaseOutOfDateWithTheTwoCommandFix(t *
 }
 
 func TestVersionReportsABuildAheadOfTheTargetOutOfDate(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.0.0", s.c1})
 	out, code := version(t, s.b2)
@@ -301,7 +298,6 @@ func TestVersionReportsABuildAheadOfTheTargetOutOfDate(t *testing.T) {
 }
 
 func TestVersionReportsABuildFromChangedSourceOutOfDate(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.0.0", s.c1})
 	out, code := version(t, s.dirty)
@@ -309,7 +305,6 @@ func TestVersionReportsABuildFromChangedSourceOutOfDate(t *testing.T) {
 }
 
 func TestVersionReportsABuildThatRecordsNoCommitOutOfDate(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.1.0", s.c2})
 	out, code := version(t, s.noCommit)
@@ -317,7 +312,6 @@ func TestVersionReportsABuildThatRecordsNoCommitOutOfDate(t *testing.T) {
 }
 
 func TestVersionReportsTheCommitAndDirtyFlagItsFileRecords(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.0.0", s.c1})
 	for _, c := range []struct {
@@ -346,7 +340,6 @@ func TestVersionReportsTheCommitAndDirtyFlagItsFileRecords(t *testing.T) {
 }
 
 func TestVersionReportsUnknownWhenTheTargetCantBeRead(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publishAt(t, filepath.Join(t.TempDir(), "no-such-repository.git"))
 	out, code := version(t, s.b1)
@@ -354,7 +347,6 @@ func TestVersionReportsUnknownWhenTheTargetCantBeRead(t *testing.T) {
 }
 
 func TestVersionReportsUnknownWhenNoReleaseExists(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false)
 	out, code := version(t, s.b1)
@@ -366,7 +358,6 @@ func TestVersionReportsUnknownWhenNoReleaseExists(t *testing.T) {
 }
 
 func TestVersionTakesTheHighestReleaseTagBySemverNotByText(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.9.0", s.c1}, release{"v1.10.0", s.c2})
 	out, code := version(t, s.b2)
@@ -376,7 +367,6 @@ func TestVersionTakesTheHighestReleaseTagBySemverNotByText(t *testing.T) {
 }
 
 func TestVersionIgnoresTagsThatAreNotReleases(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, false, release{"v1.0.0", s.c1}, release{"v2.0.0-rc1", s.c2}, release{"latest", s.c2}, release{"v3", s.c2})
 	out, code := version(t, s.b1)
@@ -384,7 +374,6 @@ func TestVersionIgnoresTagsThatAreNotReleases(t *testing.T) {
 }
 
 func TestVersionReadsAnAnnotatedReleaseTagAsTheCommitItNames(t *testing.T) {
-	pending(t)
 	s := builds(t)
 	publish(t, true, release{"v1.0.0", s.c1})
 	out, code := version(t, s.b1)

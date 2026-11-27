@@ -31,6 +31,7 @@ Every command is a word after `commit-gate`, the only name the gate puts on PATH
 - `commit-gate clear-approvals`: drop the repo's outstanding approvals and push authorization.
 - `commit-gate hook-names`: every hook name the gate's hook directory holds.
 - `commit-gate canonical`: read a commit message on standard input and print its identity, the SHA-256 of its canonical form.
+- `commit-gate version`: whether the build that runs it is the target, the commit the highest release tag on the public repository names. It prints the build's commit (`dirty` when built from changed source, `from no commit` when it records none), the target's tag and commit, the state (`up to date`, `out of date`, or `unknown` when the target can't be read or no release exists) and, when out of date, the fix. It exits non-zero unless the build is up to date.
 
 `commit-gate approve`, `approve-push` and `disable` ask for confirmation: a dialog on macOS, a prompt on the terminal elsewhere, so on Linux they need a real terminal. Each refuses when the shell command it was launched from runs anything besides `cd` and `commit-gate`.
 
