@@ -1,6 +1,5 @@
 // version.go implements `commit-gate version` (DESIGN.md, Version check)
-// and printCheck, its report, which install shares. cmdInstall is a stub
-// until its task runs.
+// and printCheck, its report, which install shares.
 package main
 
 import (
@@ -49,6 +48,3 @@ func printCheck(w io.Writer, c release.Check) error {
 	fmt.Fprintf(w, "fix:    in the Mac's clone of commit-gate, run commit-gate approve-deploy, then make deploy HOST=%s\n", host)
 	return nil
 }
-
-// cmdInstall implements `commit-gate install`. Stub.
-func cmdInstall(_ []string) int { return 0 }

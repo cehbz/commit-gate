@@ -37,13 +37,16 @@ func isPassThrough(name string) bool {
 	return false
 }
 
-// cmdHookNames prints every hook name the gate's hook directory holds, one
-// per line: install.sh, the Makefile and the tests link each to the binary.
+// hookNames is every hook name the gate's hook directory holds: the gate's
+// own and every pass-through hook.
+func hookNames() []string {
+	return append(append([]string{}, gateHooks...), passThroughHooks...)
+}
+
+// cmdHookNames prints hookNames, one per line: commit-gate install, the
+// Makefile and the tests link each to the binary.
 func cmdHookNames() int {
-	for _, h := range gateHooks {
-		fmt.Println(h)
-	}
-	for _, h := range passThroughHooks {
+	for _, h := range hookNames() {
 		fmt.Println(h)
 	}
 	return 0
