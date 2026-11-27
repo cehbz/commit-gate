@@ -2,10 +2,10 @@
 // make release VERSION=<tag> in the Mac's clone, it pushes the head to
 // origin's main and a release tag on it in one atomic push, under one push
 // authorization, and tags the clone once that push lands. It refuses,
-// changing nothing, when the clone has uncommitted changes, when origin has
-// commits the head lacks, when the head is the target's commit, when the
-// tree holds pending model-level tests, or when the version is not a
-// release tag above every release tag.
+// changing nothing, when the clone has uncommitted changes, when the clone's
+// current branch is not main, when origin has commits the head lacks, when
+// the head is the target's commit, when the tree holds pending model-level
+// tests, or when the version is not a release tag above every release tag.
 package main
 
 import (
@@ -35,6 +35,17 @@ func run(args []string) int {
 	}
 	if changes != "" {
 		return refuse("the clone has uncommitted changes:\n%s", changes)
+	}
+	branch, err := git("branch", "--show-current")
+	if err != nil {
+		return refuse("%s", err)
+	}
+	switch branch {
+	case "main":
+	case "":
+		return refuse("the clone is on a detached head; release from main")
+	default:
+		return refuse("the clone is on branch %s; release from main", branch)
 	}
 	head, err := git("rev-parse", "HEAD")
 	if err != nil {

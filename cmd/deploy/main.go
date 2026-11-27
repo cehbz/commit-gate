@@ -83,7 +83,8 @@ func fail(format string, a ...any) int {
 }
 
 // hostsToDeploy is the host named on the command line, else every host on
-// the clone's host list, one per line, skipping blank lines.
+// the clone's host list, one per line, skipping blank lines and comment
+// lines (those starting with #).
 func hostsToDeploy(clone *gatestate.Repo, args []string) ([]string, error) {
 	if len(args) > 0 {
 		return args, nil
@@ -100,7 +101,7 @@ func hostsToDeploy(clone *gatestate.Repo, args []string) ([]string, error) {
 	var hosts []string
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		if h := strings.TrimSpace(sc.Text()); h != "" {
+		if h := strings.TrimSpace(sc.Text()); h != "" && !strings.HasPrefix(h, "#") {
 			hosts = append(hosts, h)
 		}
 	}
