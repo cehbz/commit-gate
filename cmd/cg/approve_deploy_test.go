@@ -25,7 +25,6 @@ func deployAuthorized(t *testing.T, repo string) bool {
 }
 
 func TestApproveDeployRecordsADeployAuthorizationInAnEnabledRepo(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	_, errStr, code := runIn(t, repo, "", "commit-gate", "approve-deploy", "--yes")
 	if code != 0 {
@@ -37,7 +36,6 @@ func TestApproveDeployRecordsADeployAuthorizationInAnEnabledRepo(t *testing.T) {
 }
 
 func TestApproveDeployRefusesInARepoThatIsNotEnabled(t *testing.T) {
-	pending(t)
 	optedOut := mkrepoT(t)
 	gitSetConfig(t, optedOut, "commit-gate.disabled", "true")
 	overridden := mkrepoT(t)
@@ -54,7 +52,6 @@ func TestApproveDeployRefusesInARepoThatIsNotEnabled(t *testing.T) {
 }
 
 func TestApproveDeployRefusesOutsideARepository(t *testing.T) {
-	pending(t)
 	_, errStr, code := runIn(t, t.TempDir(), "", "commit-gate", "approve-deploy", "--yes")
 	if code != 1 || errStr != "commit-gate: not inside a git repository\n" {
 		t.Fatalf("code=%d stderr=%q", code, errStr)
@@ -64,7 +61,6 @@ func TestApproveDeployRefusesOutsideARepository(t *testing.T) {
 // The paste the launch guard exists for: the authorization and the deploy it
 // admits in one chain.
 func TestApproveDeployRefusesWhenTheShellLaunchAlsoRunsMakeDeploy(t *testing.T) {
-	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
 	out, code := runShellC(t, repo, "", bin+" approve-deploy --yes && make deploy")
@@ -81,7 +77,6 @@ func TestApproveDeployRefusesWhenTheShellLaunchAlsoRunsMakeDeploy(t *testing.T) 
 }
 
 func TestApproveDeployRunsWhenTheShellLaunchIsCdAndCommitGateAlone(t *testing.T) {
-	pending(t)
 	skipUnlessSupportedPlatform(t)
 	repo := mkrepoT(t)
 	out, code := runShellC(t, t.TempDir(), "", "cd "+repo+" && "+bin+" approve-deploy --yes")
@@ -94,7 +89,6 @@ func TestApproveDeployRunsWhenTheShellLaunchIsCdAndCommitGateAlone(t *testing.T)
 }
 
 func TestCommitGateWithNoCommandNamesVersionInstallAndApproveDeploy(t *testing.T) {
-	pending(t)
 	_, errStr, code := run(t, "", "commit-gate")
 	if code == 0 {
 		t.Fatalf("commit-gate with no command must fail, got exit 0; stderr=%q", errStr)
@@ -111,7 +105,6 @@ func TestCommitGateWithNoCommandNamesVersionInstallAndApproveDeploy(t *testing.T
 }
 
 func TestApproveLeavesALiveDeployAuthorizationLive(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "approve-deploy", "--yes"); code != 0 {
 		t.Fatalf("commit-gate approve-deploy: code=%d stderr=%q", code, errStr)

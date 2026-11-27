@@ -35,8 +35,8 @@ func dieApprove(format string, a ...any) int {
 }
 
 // checkLaunchGuard is the shared entry point for commit-gate approve,
-// approve-push and disable: these are human-only commands the user runs by
-// pasting a `!` command an agent composed. A pasted chain that also runs
+// approve-push, approve-deploy and disable: these are human-only commands
+// the user runs by pasting a `!` command an agent composed. A pasted chain that also runs
 // other things (`commit-gate approve && ./install.sh`) would get those
 // other things run without individual review. checkLaunchGuard refuses to
 // let cmdName proceed when the command it was launched from runs anything

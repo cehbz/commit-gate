@@ -2,12 +2,16 @@ package policy
 
 import "github.com/cehbz/commit-gate/shellscan"
 
-// R5: commit-gate approve, approve-push and disable are human-only: the
-// agent may not run them itself (the user runs them via `!` or a terminal).
-// commit-gate counts on PATH or by its path, since shellscan.Basename strips
-// the directory. A command word the precheck can't resolve
-// (`commit-gate "$c"`) is refused, as a computed command name is.
-var humanOnly = map[string]bool{"approve": true, "approve-push": true, "disable": true}
+// R5: commit-gate approve, approve-push, approve-deploy, disable and install
+// are human-only: the agent may not run them itself (the user runs them via
+// `!` or a terminal), so it installs only through make deploy, under the
+// user's deploy authorization. commit-gate counts on PATH or by its path,
+// since shellscan.Basename strips the directory. A command word the
+// precheck can't resolve (`commit-gate "$c"`) is refused, as a computed
+// command name is.
+var humanOnly = map[string]bool{
+	"approve": true, "approve-push": true, "approve-deploy": true, "disable": true, "install": true,
+}
 
 func ruleHumanOnly(inv shellscan.Invocation, _ ToolCall, _ Ctx) (Decision, bool) {
 	if !inv.HasCommand {

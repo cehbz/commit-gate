@@ -1,13 +1,13 @@
 // Command commit-gate is the single binary behind every hook and command of
 // the gate. Run as commit-gate, its first argument is a command word
-// (approve, approve-push, clear-approvals, status, enable, disable,
-// hook-names, canonical). Run under any other name, that name is a hook:
-// precheck and sessioncheck for Claude Code, and in the hooks/ directory
-// commit-msg and pre-push, which enforce, and every other hook git runs,
-// which passes through to the repo's own .git/hooks/<name>. The source
-// package lives at cmd/cg but the built binary is always named
-// "commit-gate"; dispatch reads filepath.Base(os.Args[0]), never the source
-// directory.
+// (approve, approve-push, approve-deploy, clear-approvals, status, enable,
+// disable, hook-names, canonical, version, install). Run under any other
+// name, that name is a hook: precheck and sessioncheck for Claude Code, and
+// in the hooks/ directory commit-msg and pre-push, which enforce, and every
+// other hook git runs, which passes through to the repo's own
+// .git/hooks/<name>. The source package lives at cmd/cg but the built binary
+// is always named "commit-gate"; dispatch reads filepath.Base(os.Args[0]),
+// never the source directory.
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 )
 
-const commandUsage = "usage: commit-gate <approve|approve-push|clear-approvals|status|enable|disable|hook-names|canonical> ..."
+const commandUsage = "usage: commit-gate <approve|approve-push|approve-deploy|clear-approvals|status|enable|disable|hook-names|canonical|version|install> ..."
 
 func main() {
 	os.Exit(dispatch(os.Args))

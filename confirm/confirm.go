@@ -1,6 +1,6 @@
 // Package confirm implements the human-confirmation channel used by
-// human-only commands (commit-gate approve, approve-push, disable): macOS
-// osascript dialog (works even over the tty-less `!` shell used by some
+// human-only commands (commit-gate approve, approve-push, approve-deploy,
+// disable): macOS osascript dialog (works even over the tty-less `!` shell used by some
 // agent harnesses) -> /dev/tty y/N prompt -> abort with "no confirmation
 // channel".
 package confirm

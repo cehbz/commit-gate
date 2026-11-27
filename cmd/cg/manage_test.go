@@ -265,7 +265,6 @@ func TestStatusDisabled(t *testing.T) {
 }
 
 func TestStatusEnabledNoneAndNoToken(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
 		t.Fatalf("commit-gate enable setup failed: %s", errStr)
@@ -281,7 +280,6 @@ func TestStatusEnabledNoneAndNoToken(t *testing.T) {
 }
 
 func TestStatusEnabledWithApprovalsAndToken(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
 		t.Fatalf("commit-gate enable setup failed: %s", errStr)
@@ -325,7 +323,6 @@ func TestStatusNonRepoDies(t *testing.T) {
 // --- clear-approvals ---
 
 func TestClearApprovalsHappyPath(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
 		t.Fatalf("commit-gate enable setup failed: %s", errStr)

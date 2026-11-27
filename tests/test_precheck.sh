@@ -123,5 +123,5 @@ precheck_denies_commit_gate_approve_deploy_and_install_and_leaves_version_releas
   silent "make deploy HOST=example" "$ungated" || fail 'deploy false-denied'
   silent "make deploy" "$ungated" || fail 'deploy of the host list false-denied'
 }
-pending precheck_denies_commit_gate_approve_deploy_and_install_and_leaves_version_release_and_deploy
+precheck_denies_commit_gate_approve_deploy_and_install_and_leaves_version_release_and_deploy
 echo "OK: test_precheck"

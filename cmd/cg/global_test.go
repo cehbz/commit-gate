@@ -76,7 +76,6 @@ func TestANeverEnabledClonedRepoGatesCommits(t *testing.T) {
 }
 
 func TestClearApprovalsCreatesTheManifestInANeverEnabledRepo(t *testing.T) {
-	pending(t)
 	repo := mkrepoT(t)
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "clear-approvals")
 	if code != 0 || out != "commit-gate: approvals, push token and deploy token cleared\n" {

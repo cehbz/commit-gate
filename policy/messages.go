@@ -5,7 +5,7 @@ const (
 	MsgDisabled         = `commit-gate: the agent may not opt a repo out (commit-gate.disabled is human-only).`
 	MsgHooksPath        = `commit-gate: the agent may only set core.hooksPath to the gate (enable); not elsewhere, not --unset, not by removing or renaming the core section.`
 	MsgWriteTarget      = `commit-gate: the agent may not modify gate state, native hooks, .git/config or the global git config.`
-	MsgHumanOnly        = `commit-gate: the agent may not run commit-gate approve, approve-push or disable — these are human-only (run via ! or a terminal).`
+	MsgHumanOnly        = `commit-gate: the agent may not run commit-gate approve, approve-push, approve-deploy, disable or install — these are human-only (run via ! or a terminal); the agent installs only through make deploy.`
 	MsgUnresolvable     = `commit-gate: unresolvable command in a guarded position — use a literal command name.`
 	MsgParse            = `commit-gate: couldn't parse; simplify or split the command.`
 	MsgEditGate         = `commit-gate: the agent may not edit gate state or scripts.`

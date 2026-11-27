@@ -6,7 +6,6 @@ import "testing"
 // install are human-only, while version, make release and make deploy stay
 // the agent's (DESIGN.md: Precheck, Protected set).
 func TestPrecheckDeniesApproveDeployAndInstallAndLeavesVersionReleaseAndDeployToTheAgent(t *testing.T) {
-	pending(t)
 	wantDeny(t, "commit-gate approve-deploy", MsgHumanOnly)
 	wantDeny(t, "commit-gate approve-deploy --yes", MsgHumanOnly)
 	wantDeny(t, "commit-gate install", MsgHumanOnly)

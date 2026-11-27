@@ -1,6 +1,6 @@
 // Package launchguard protects the human-only commands (commit-gate
-// approve, approve-push and disable) against blind pastes: an
-// agent-composed `!` command chain such as `commit-gate approve &&
+// approve, approve-push, approve-deploy and disable) against blind pastes:
+// an agent-composed `!` command chain such as `commit-gate approve &&
 // ./install.sh` would, if pasted and confirmed once, run everything in the
 // chain without individual review. Check inspects the argv of the shell
 // that launched this process (its parent, read via os.Getppid()) and
@@ -44,8 +44,8 @@ type Result struct {
 var GetParentArgv = defaultGetParentArgv
 
 // Check inspects the launch command of the process running the command
-// word cmdName (one of "approve", "approve-push", "disable") and reports
-// whether it may proceed.
+// word cmdName (one of "approve", "approve-push", "approve-deploy",
+// "disable") and reports whether it may proceed.
 func Check(cmdName string) Result {
 	argv, err := GetParentArgv()
 	return decide(cmdName, argv, err)
