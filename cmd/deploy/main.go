@@ -131,7 +131,9 @@ func platformOf(host string) (platform, error) {
 	if host == release.Mac {
 		return platform{runtime.GOOS, runtime.GOARCH}, nil
 	}
-	out, err := exec.Command("ssh", host, "uname -sm").Output()
+	probe := exec.Command("ssh", host, "uname -sm")
+	probe.Stderr = os.Stderr
+	out, err := probe.Output()
 	if err != nil {
 		return platform{}, fmt.Errorf("ssh %s uname -sm: %w", host, err)
 	}

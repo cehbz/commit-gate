@@ -23,7 +23,8 @@ deliberate indirection (sabotage), outside the rationalization threat model:
   sets `core.hooksPath`; `git config --edit`/`-e` with an editor from `GIT_EDITOR`, `EDITOR` or
   `-c core.editor`.
 - Writers outside R4's verbs: in-place editors other than `sed -i` (`perl -pi`, `python`),
-  `ln`, `dd of=` and `install`.
+  `ln`, `dd of=`, `install` and `touch` (`touch .git/commit-gate/deploy-token` creates an
+  authorization).
 - Directory destinations: `cp x ~`, `cp -t ~ x` and `mv x /r/.git` write
   `<dir>/<basename of the source>`, a protected file when the source is named `.gitconfig`,
   `config` or `hooks/<name>`; only the destination word is checked.

@@ -173,13 +173,17 @@ func addClaudeHooks(l release.Layout) error {
 		settings["hooks"] = hooks
 	}
 	precheck, sessioncheck := filepath.Join(l.Dir(), "precheck"), filepath.Join(l.Dir(), "sessioncheck")
-	addHook(hooks, "PreToolUse", precheck, map[string]any{
+	added := addHook(hooks, "PreToolUse", precheck, map[string]any{
 		"matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
 		"hooks":   []any{map[string]any{"type": "command", "command": precheck, "statusMessage": "commit-gate precheck"}},
 	})
-	addHook(hooks, "SessionStart", sessioncheck, map[string]any{
+	added = addHook(hooks, "SessionStart", sessioncheck, map[string]any{
 		"hooks": []any{map[string]any{"type": "command", "command": sessioncheck}},
-	})
+	}) || added
+	if !added {
+		fmt.Printf("commit-gate: Claude Code hooks in %s\n", path)
+		return nil
+	}
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
 	enc.SetEscapeHTML(false)
@@ -196,17 +200,18 @@ func addClaudeHooks(l release.Layout) error {
 }
 
 // addHook appends entry to hooks[event] unless a hook there already runs
-// command.
-func addHook(hooks map[string]any, event, command string, entry map[string]any) {
+// command, and reports whether it appended.
+func addHook(hooks map[string]any, event, command string, entry map[string]any) bool {
 	list, _ := hooks[event].([]any)
 	for _, e := range list {
 		m, _ := e.(map[string]any)
 		inner, _ := m["hooks"].([]any)
 		for _, h := range inner {
 			if hm, _ := h.(map[string]any); hm["command"] == command {
-				return
+				return false
 			}
 		}
 	}
 	hooks[event] = append(list, entry)
+	return true
 }
