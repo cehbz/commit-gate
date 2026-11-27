@@ -4,3 +4,4 @@ docs/stage1-assets/
 build/
 .superpowers/
 .claude/
+/deploy.hosts
