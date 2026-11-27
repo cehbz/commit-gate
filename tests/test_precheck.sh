@@ -109,4 +109,19 @@ out="$(jq -cn '{tool_name:"Write",tool_input:{file_path:"/x/src/main.go"}}' | "$
 out="$(jq -cn '{tool_name:"Write",tool_input:{file_path:"/Users/h/projects/commit-gate/policy/policy.go"}}' | "$PC")"
 [ -z "$out" ] || fail 'gate SOURCE repo must be editable (installed-artifacts boundary)'
 
+# commit-gate approve-deploy and install are human-only; version, release and
+# deploy are the agent's.
+precheck_denies_commit_gate_approve_deploy_and_install_and_leaves_version_release_and_deploy() {
+  denies "commit-gate approve-deploy" || fail 'approve-deploy not denied'
+  denies "commit-gate approve-deploy --yes" || fail 'approve-deploy --yes not denied'
+  denies "commit-gate install" || fail 'install not denied'
+  denies "~/.local/libexec/commit-gate/staging/commit-gate install" || fail 'a staged build install not denied'
+  denies "cd ~/projects/commit-gate && commit-gate approve-deploy && make deploy" || fail 'approve-deploy chained before deploy not denied'
+  denies "bash -c 'commit-gate install'" || fail 'install inside -c not denied'
+  silent "commit-gate version" "$ungated" || fail 'version false-denied'
+  silent "make release VERSION=v1.2.0" "$ungated" || fail 'release false-denied'
+  silent "make deploy HOST=example" "$ungated" || fail 'deploy false-denied'
+  silent "make deploy" "$ungated" || fail 'deploy of the host list false-denied'
+}
+pending precheck_denies_commit_gate_approve_deploy_and_install_and_leaves_version_release_and_deploy
 echo "OK: test_precheck"

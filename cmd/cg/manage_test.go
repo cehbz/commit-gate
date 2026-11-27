@@ -265,6 +265,7 @@ func TestStatusDisabled(t *testing.T) {
 }
 
 func TestStatusEnabledNoneAndNoToken(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
 		t.Fatalf("commit-gate enable setup failed: %s", errStr)
@@ -273,13 +274,14 @@ func TestStatusEnabledNoneAndNoToken(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("commit-gate status failed: code=%d stderr=%q", code, errStr)
 	}
-	want := "commit-gate: enabled\napproved (pending): none\npush token: none\n"
+	want := "commit-gate: enabled\napproved (pending): none\npush token: none\ndeploy token: none\n"
 	if out != want {
 		t.Fatalf("stdout mismatch:\ngot:  %q\nwant: %q", out, want)
 	}
 }
 
 func TestStatusEnabledWithApprovalsAndToken(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
 		t.Fatalf("commit-gate enable setup failed: %s", errStr)
@@ -294,12 +296,15 @@ func TestStatusEnabledWithApprovalsAndToken(t *testing.T) {
 	if err := os.WriteFile(r.PushTokenPath(), []byte("x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(r.DeployTokenPath(), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "status")
 	if code != 0 {
 		t.Fatalf("commit-gate status failed: code=%d stderr=%q", code, errStr)
 	}
-	want := "commit-gate: enabled\napproved (pending):\n  feat: pending one\npush token: present\n"
+	want := "commit-gate: enabled\napproved (pending):\n  feat: pending one\npush token: present\ndeploy token: present\n"
 	if out != want {
 		t.Fatalf("stdout mismatch:\ngot:  %q\nwant: %q", out, want)
 	}
@@ -320,6 +325,7 @@ func TestStatusNonRepoDies(t *testing.T) {
 // --- clear-approvals ---
 
 func TestClearApprovalsHappyPath(t *testing.T) {
+	pending(t)
 	repo := mkrepoT(t)
 	if _, errStr, code := runIn(t, repo, "", "commit-gate", "enable"); code != 0 {
 		t.Fatalf("commit-gate enable setup failed: %s", errStr)
@@ -334,12 +340,15 @@ func TestClearApprovalsHappyPath(t *testing.T) {
 	if err := os.WriteFile(r.PushTokenPath(), []byte("x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(r.DeployTokenPath(), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	out, errStr, code := runIn(t, repo, "", "commit-gate", "clear-approvals")
 	if code != 0 {
 		t.Fatalf("clear-approvals failed: code=%d stderr=%q", code, errStr)
 	}
-	if out != "commit-gate: approvals and push token cleared\n" {
+	if out != "commit-gate: approvals, push token and deploy token cleared\n" {
 		t.Fatalf("stdout mismatch: %q", out)
 	}
 
@@ -352,6 +361,9 @@ func TestClearApprovalsHappyPath(t *testing.T) {
 	}
 	if _, err := os.Stat(r.PushTokenPath()); !os.IsNotExist(err) {
 		t.Fatalf("push token must be removed")
+	}
+	if _, err := os.Stat(r.DeployTokenPath()); !os.IsNotExist(err) {
+		t.Fatalf("deploy token must be removed")
 	}
 }
 

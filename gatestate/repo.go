@@ -59,6 +59,9 @@ func (r *Repo) ManifestPath() string  { return filepath.Join(r.GateDir(), "appro
 func (r *Repo) PendingPath() string   { return filepath.Join(r.Common, "cg-pending") }
 func (r *Repo) PushTokenPath() string { return filepath.Join(r.GateDir(), "push-token") }
 
+// DeployTokenPath is where the clone's deploy authorization lives.
+func (r *Repo) DeployTokenPath() string { return filepath.Join(r.GateDir(), "deploy-token") }
+
 func (r *Repo) Toplevel() (string, error) { return git(r.Dir, "rev-parse", "--show-toplevel") }
 
 func (r *Repo) Disabled() bool {

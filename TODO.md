@@ -38,9 +38,10 @@ deliberate indirection (sabotage), outside the rationalization threat model:
 - Rewriting `cg-pending`, which is outside the protected set, so a bare `commit-gate approve`
   records the rewritten message; its confirmation dialog shows subjects only, though the
   terminal prints the full messages.
-- Wrappers in front of `commit-gate`: `timeout 60 commit-gate approve`, `nohup` and `nice`
-  run a human-only command; the precheck denies `commit-gate approve`, `approve-push` and
-  `disable` only where `commit-gate` is the command name, on PATH or by its path.
+- Wrappers in front of `commit-gate`: `timeout 60 commit-gate approve`, `nohup`, `nice` and
+  `ssh` (`ssh <host> commit-gate install`) run a human-only command; the precheck denies
+  `commit-gate approve`, `approve-push`, `approve-deploy`, `disable` and `install` only where
+  `commit-gate` is the command name, on PATH or by its path.
 Closing any of these means expanding the threat model from rationalization to sabotage.
 
 ## Worth investigating

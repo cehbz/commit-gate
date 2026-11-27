@@ -57,6 +57,12 @@ func runCommand(args []string) int {
 		return cmdHookNames()
 	case "canonical":
 		return cmdCanonical()
+	case "version":
+		return cmdVersion(rest)
+	case "install":
+		return cmdInstall(rest)
+	case "approve-deploy":
+		return cmdApproveDeploy(rest)
 	}
 	return unknownCommand(word)
 }

@@ -1,6 +1,6 @@
 BUILD := build
 
-.PHONY: build test accept clean
+.PHONY: build test accept clean release deploy
 
 build:
 	@mkdir -p $(BUILD)/hooks $(BUILD)/tests
@@ -18,3 +18,11 @@ accept: build
 
 clean:
 	rm -rf $(BUILD)
+
+# Stub: make release VERSION=<tag> (DESIGN.md, Release).
+release:
+	@:
+
+# Stub: make deploy [HOST=<host>] (DESIGN.md, Deploy).
+deploy:
+	@:
